@@ -160,7 +160,7 @@ export default function DecisionBoundariesPage() {
         ctx.clearRect(0, 0, width, height);
 
         // background
-        ctx.fillStyle = "#0b1220" ;
+        ctx.fillStyle = "#eaeceeff" ;
         ctx.fillRect(0, 0, width, height);
 
         const { xMin, xMax, yMin, yMax } = domain;
@@ -168,7 +168,7 @@ export default function DecisionBoundariesPage() {
         const plotH = height - PADDING * 2;
 
         // axes box
-        ctx.strokeStyle =  "#44556a" ;
+        ctx.strokeStyle =  "#486c97ff" ;
         ctx.lineWidth = 1;
         ctx.strokeRect(PADDING, PADDING, plotW, plotH);
 

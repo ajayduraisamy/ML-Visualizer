@@ -1,13 +1,14 @@
 
-import { Routes, Route } from 'react-router-dom'
-import Navbar from './components/Navbar'
+import { Route, Routes } from 'react-router-dom'
 import Footer from './components/Footer'
+import Navbar from './components/Navbar'
+import About from './pages/About'
+import CNNVisualizer from './pages/CNNVisualizer'
+import Compare from './pages/compare'
+import DecisionBoundaries from './pages/DecisionBoundaries'
 import Home from './pages/Home'
 import LinearRegression from './pages/LinearRegression'
-import DecisionBoundaries from './pages/DecisionBoundaries'
 import NeuralNetworks from './pages/NeuralNetworks'
-import CNNVisualizer from './pages/CNNVisualizer'
-import About from './pages/About'
 
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/decision-boundaries" element={<DecisionBoundaries />} />
           <Route path="/neural-networks" element={<NeuralNetworks />} />
           <Route path="/cnn-visualizer" element={<CNNVisualizer />} />
+          <Route path="/compare" element={<Compare />} />
         </Routes>
       </main>
       <Footer />
