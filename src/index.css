@@ -1,0 +1,32 @@
+@import "tailwindcss";
+/* MUST BE FIRST */
+
+/* Custom theme variables */
+@theme {
+    --font-sans: "Inter", sans-serif;
+    --color-primary: #2563eb;
+    --color-background-light: #f9fafb;
+    --color-background-dark: #0f172a;
+    --color-text-light: #0f172a;
+    /* dark text for light mode */
+    --color-text-dark: #f9fafb;
+    /* light text for dark mode */
+}
+
+/* Base setup */
+html {
+    color-scheme: light dark;
+}
+
+/* Light mode */
+body {
+    background-color: var(--color-background-light);
+    color: var(--color-text-light);
+    font-family: var(--font-sans);
+}
+
+/* Dark mode */
+.dark body {
+    background-color: var(--color-background-dark);
+    color: var(--color-text-dark);
+}
