@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 /**
  * Canvas Linear Regression Visualiser
@@ -34,7 +34,7 @@ function calcRegression(points: Point[]) {
 }
 
 export default function LinearRegression() {
-     const { theme } = useTheme();
+    const { theme } = useTheme();
     const [points, setPoints] = useState<Point[]>([
         { x: 1, y: 3 },
         { x: 2, y: 5 },
@@ -75,10 +75,10 @@ export default function LinearRegression() {
         // pad
         const xpad = Math.max(1, (xmax - xmin) * 0.15);
         const ypad = Math.max(1, (ymax - ymin) * 0.15);
-        xmin = xmin - xpad;
-        xmax = xmax + xpad;
-        ymin = ymin - ypad;
-        ymax = ymax + ypad;
+        xmin = Math.floor(xmin - xpad);
+        xmax = Math.ceil(xmax + xpad);
+        ymin = Math.floor(ymin - ypad);
+        ymax = Math.ceil(ymax + ypad);
         // if flat, expand
         if (Math.abs(xmax - xmin) < 1e-6) { xmax = xmin + 5; }
         if (Math.abs(ymax - ymin) < 1e-6) { ymax = ymin + 5; }
@@ -116,32 +116,52 @@ export default function LinearRegression() {
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
         ctx.clearRect(0, 0, width, height);
 
-        // background
-        ctx.fillStyle = "#fff";
+        // background - dynamic based on theme
+        ctx.fillStyle = theme === "dark" ? "#1f2937" : "#fff";
         ctx.fillRect(0, 0, width, height);
 
-        // grid
-        ctx.strokeStyle = "#e6e6e6";
+        const { xmin, xmax, ymin, ymax } = getDomain();
+
+        // Calculate nice increments for axis labels
+        const xRange = xmax - xmin;
+        const yRange = ymax - ymin;
+        const xIncrement = Math.pow(10, Math.floor(Math.log10(xRange))) / 2;
+        const yIncrement = Math.pow(10, Math.floor(Math.log10(yRange))) / 2;
+
+        // grid - dynamic colors based on theme
+        ctx.strokeStyle = theme === "dark" ? "#374151" : "#e6e6e6";
         ctx.lineWidth = 1;
-        const xSteps = 8;
-        const ySteps = 8;
-        for (let i = 0; i <= xSteps; i++) {
-            const x = PADDING + (i / xSteps) * (width - 2 * PADDING);
+        ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#6b7280";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // X-axis grid lines and labels
+        for (let x = Math.ceil(xmin / xIncrement) * xIncrement; x <= xmax; x += xIncrement) {
+            const { px } = dataToPixel(x, 0, width, height);
             ctx.beginPath();
-            ctx.moveTo(x, PADDING);
-            ctx.lineTo(x, height - PADDING);
+            ctx.moveTo(px, PADDING);
+            ctx.lineTo(px, height - PADDING);
             ctx.stroke();
-        }
-        for (let j = 0; j <= ySteps; j++) {
-            const y = PADDING + (j / ySteps) * (height - 2 * PADDING);
-            ctx.beginPath();
-            ctx.moveTo(PADDING, y);
-            ctx.lineTo(width - PADDING, y);
-            ctx.stroke();
+
+            // X-axis label
+            ctx.fillText(x.toFixed(1), px, height - PADDING + 15);
         }
 
-        // axes
-        ctx.strokeStyle = "#222";
+        // Y-axis grid lines and labels
+        for (let y = Math.ceil(ymin / yIncrement) * yIncrement; y <= ymax; y += yIncrement) {
+            const { py } = dataToPixel(0, y, width, height);
+            ctx.beginPath();
+            ctx.moveTo(PADDING, py);
+            ctx.lineTo(width - PADDING, py);
+            ctx.stroke();
+
+            // Y-axis label
+            ctx.fillText(y.toFixed(1), PADDING - 15, py);
+        }
+
+        // axes - dynamic colors based on theme
+        ctx.strokeStyle = theme === "dark" ? "#d1d5db" : "#222";
         ctx.lineWidth = 1.25;
         ctx.beginPath();
         // x axis
@@ -152,22 +172,25 @@ export default function LinearRegression() {
         ctx.lineTo(PADDING, height - PADDING);
         ctx.stroke();
 
+        // Reset text alignment for other text
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+
         // draw residual dashed lines if enabled
         if (showResiduals) {
-            points.forEach((p) => {
+            points.forEach((p, i) => {
                 const predictedY = currentM * p.x + currentB;
                 const { px: px1, py: py1 } = dataToPixel(p.x, p.y, width, height);
                 const { px: px2, py: py2 } = dataToPixel(p.x, predictedY, width, height);
                 ctx.beginPath();
                 ctx.setLineDash([6, 6]);
-                ctx.strokeStyle = "green";
+                ctx.strokeStyle = theme === "dark" ? "#10b981" : "green";
                 ctx.lineWidth = 1.5;
                 ctx.moveTo(px1, py1);
                 ctx.lineTo(px2, py2);
                 ctx.stroke();
                 ctx.setLineDash([]);
             });
-
         }
 
         // draw regression line (red) across domain
@@ -179,7 +202,7 @@ export default function LinearRegression() {
             const { px: lpx, py: lpy } = dataToPixel(leftData, yLeft, width, height);
             const { px: rpx, py: rpy } = dataToPixel(rightData, yRight, width, height);
             ctx.beginPath();
-            ctx.strokeStyle = "red";
+            ctx.strokeStyle = theme === "dark" ? "#ef4444" : "red";
             ctx.lineWidth = 2.5;
             ctx.moveTo(lpx, lpy);
             ctx.lineTo(rpx, rpy);
@@ -190,16 +213,18 @@ export default function LinearRegression() {
         points.forEach((p, i) => {
             const { px, py } = dataToPixel(p.x, p.y, width, height);
             ctx.beginPath();
-            ctx.fillStyle = i === hoverIdx ? "#ff8c00" : "#2563eb"; // hover highlight
+            ctx.fillStyle = i === hoverIdx
+                ? (theme === "dark" ? "#f59e0b" : "#ff8c00")
+                : (theme === "dark" ? "#3b82f6" : "#2563eb");
             ctx.arc(px, py, POINT_RADIUS, 0, Math.PI * 2);
             ctx.fill();
         });
 
-        // labels: equation & total error top-left
-        ctx.fillStyle = "#111827";
+        // labels: equation & total error top-left - dynamic text colors
+        ctx.fillStyle = theme === "dark" ? "#f3f4f6" : "#111827";
         ctx.font = "14px sans-serif";
         ctx.fillText(`y = ${currentM.toFixed(4)} x + ${currentB.toFixed(4)}`, PADDING + 2, 20);
-        ctx.fillStyle = "#6b7280";
+        ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#6b7280";
         ctx.font = "12px sans-serif";
         ctx.fillText(`Total Error (Sum of Squared Residuals): ${totalError.toFixed(4)}`, PADDING + 2, 38);
 
@@ -238,26 +263,25 @@ export default function LinearRegression() {
                 boxY = height - PADDING - boxHeight;
             }
 
-
-            // Draw box
-            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-            ctx.strokeStyle = "#999";
+            // Draw box - dynamic based on theme
+            ctx.fillStyle = theme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)";
+            ctx.strokeStyle = theme === "dark" ? "#6b7280" : "#999";
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.rect(boxX, boxY, boxWidth, boxHeight);
             ctx.fill();
             ctx.stroke();
 
-            // Draw text
-            ctx.fillStyle = "red";
+            // Draw text - dynamic colors based on theme
+            ctx.fillStyle = theme === "dark" ? "#ef4444" : "red";
             ctx.fillText(allLines[0], boxX + 10, boxY + 18);
 
-            ctx.fillStyle = "green";
+            ctx.fillStyle = theme === "dark" ? "#10b981" : "green";
             for (let i = 1; i < allLines.length; i++) {
                 ctx.fillText(allLines[i], boxX + 10, boxY + 18 + i * 18);
             }
         }
-    }, [points, currentM, currentB, getDomain, hoverIdx, showResiduals, totalError]);
+    }, [points, currentM, currentB, getDomain, hoverIdx, showResiduals, totalError, theme]);
 
     // initial set current line to computed line
     useEffect(() => {
@@ -461,36 +485,32 @@ export default function LinearRegression() {
 
     return (
         <div className={`p-6 space-y-6 ${theme === "dark" ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+            <h1 className={`text-2xl font-bold max-w-4xl mx-auto leading-relaxed ${theme === "dark"
+                ? "text-white/70 bg-gradient-to-r from-white/5 to-transparent p-8 rounded-3xl border border-white/10"
+                : "text-black/70 bg-gradient-to-r from-black/5 to-transparent p-8 rounded-3xl border border-black/10"
+                }`}>
+                Animated Linear Regression
+            </h1>
 
-        
-            <h1 className="text-2xl font-bold mt-14 text-center">Animated Linear Regression</h1>
-
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 {/* Left Chart */}
-                <div className={`md:col-span-2 p-4 border rounded-lg ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-black"}`}>
-
+                <div className={`md:col-span-2 p-4 border rounded-lg ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                     <div className="flex justify-between items-start mb-2">
                         <div>
                             <h2 className="text-lg font-semibold">Regression Equation</h2>
-                            
-
-
+                          
                         </div>
 
-                        <div className={`text-right text-xs ${theme === "dark" ? "text-white" : "text-gray-500"}`}>
-                            Points:{" "}
-                            <span className={`font-medium ${theme === "dark" ? "text-white" : "text-gray-800"}`}>
-                                {points.length}
-                            </span>
+                        <div className={`text-right text-xs ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                            Points: <span className={`font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>{points.length}</span>
                         </div>
-
                     </div>
 
                     <div className="relative">
                         <canvas
                             ref={canvasRef}
                             style={{ width: "100%", height: 420 }}
-                            className="w-full rounded bg-white border cursor-crosshair"
+                            className={`w-full rounded border cursor-crosshair ${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}
                         />
                     </div>
                 </div>
@@ -505,80 +525,69 @@ export default function LinearRegression() {
                     >
                         <h3 className="font-semibold mb-2">How the Best Fit Line Works</h3>
 
-                      
                         <ol
                             className={`list-decimal ml-4 text-sm space-y-2 ${theme === "dark" ? "text-gray-300" : "text-gray-600"
                                 }`}
                         >
-
-                            <li><strong>Calculate mean of X and Y</strong> – Find the "center" of the data.</li>
-                            <li><strong>Calculate slope</strong> – Using the formula: slope = Σ(x - x̄)(y - ȳ) / Σ(x - x̄)²</li>
-                            <li><strong>Calculate y-intercept</strong> – Using the formula: intercept = ȳ − (slope × x̄)</li>
-                            <li><strong>Minimize residuals</strong> – The green dotted lines show the errors (distances) between actual and predicted values.</li>
-                            <li><strong>Sum of squared errors</strong> – The optimal line minimizes the sum of these squared errors.</li>
-
+                            <li>
+                                <strong>Calculate mean of X and Y</strong> – Find the "center" of
+                                the data.
+                            </li>
+                            <li>
+                                <strong>Calculate slope</strong> – Using the formula: slope =
+                                Σ(x - x̄)(y - ȳ) / Σ(x - x̄)²
+                            </li>
+                            <li>
+                                <strong>Calculate y-intercept</strong> – Using the formula:
+                                intercept = ȳ − (slope × x̄)
+                            </li>
+                            <li>
+                                <strong>Minimize residuals</strong> – The green dotted lines show
+                                the errors (distances) between actual and predicted values.
+                            </li>
+                            <li>
+                                <strong>Sum of squared errors</strong> – The optimal line
+                                minimizes the sum of these squared errors.
+                            </li>
                         </ol>
                     </div>
 
-                   <div
-  className={`p-4 border rounded-lg ${
-    theme === "dark"
-      ? "bg-gray-800 border-gray-700 text-white"
-      : "bg-white border-gray-300 text-gray-900"
-  }`}
->
-  <h3 className="font-semibold mb-2">Data Points</h3>
+                    <div className={`p-4 border rounded-lg ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                        <h3 className="font-semibold mb-2">Data Points</h3>
+                        <div className="flex gap-2 mb-3">
+                            <input
+                                id="inpX"
+                                placeholder="X value"
+                                className={`border p-2 rounded w-full ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300"}`}
+                            />
+                            <input
+                                id="inpY"
+                                placeholder="Y value"
+                                className={`border p-2 rounded w-full ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300"}`}
+                            />
+                        </div>
+                        <div className="flex gap-2 mb-3">
+                            <button onClick={addPointFromInputs} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full transition-colors">
+                                Add Point
+                            </button>
+                            <button onClick={clearPoints} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full transition-colors">
+                                Clear Data
+                            </button>
+                        </div>
 
-  <div className="flex gap-2 mb-3">
-    <input
-      id="inpX"
-      placeholder="X value"
-      className={`border p-2 rounded w-full ${
-        theme === "dark"
-          ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
-          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-      }`}
-    />
-    <input
-      id="inpY"
-      placeholder="Y value"
-      className={`border p-2 rounded w-full ${
-        theme === "dark"
-          ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
-          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-      }`}
-    />
-  </div>
-
-  <div className="flex gap-2 mb-3">
-    <button
-      onClick={addPointFromInputs}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full transition"
-    >
-      Add Point
-    </button>
-    <button
-      onClick={clearPoints}
-      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full transition"
-    >
-      Clear Data
-    </button>
-  </div>
-
-
-                        <div className="h-40 overflow-auto border rounded">
+                        <div className={`h-40 overflow-auto border rounded ${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}>
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 sticky top-0">
-                                    <tr className="text-gray-600">
+                                <thead className={`sticky top-0 ${theme === "dark" ? "bg-gray-600" : "bg-gray-50"}`}>
+                                    <tr className={theme === "dark" ? "text-gray-200" : "text-gray-600"}>
                                         <th className="text-left px-2 py-1">X</th>
                                         <th className="text-left px-2 py-1">Y</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {points.map((p, i) => (
-                                        <tr key={i} className="border-t">
-                                            <td className="px-2 py-1">{p.x}</td>
-                                            <td className="px-2 py-1">{p.y}</td>
+                                        <tr key={i} className={theme === "dark" ? "border-gray-600" : "border-gray-200"}>
+                                            <td className={`px-2 py-1 border-t ${theme === "dark" ? "border-gray-600" : "border-gray-200"}`}>{p.x}</td>
+                                            <td className={`px-2 py-1 border-t ${theme === "dark" ? "border-gray-600" : "border-gray-200"}`}>{p.y}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -586,12 +595,7 @@ export default function LinearRegression() {
                         </div>
                     </div>
 
-                    <div
-                        className={`p-4 border rounded-lg space-y-3 ${theme === "dark"
-                                ? "bg-gray-800 border-gray-700 text-white"
-                                : "bg-white border-gray-300 text-gray-900"
-                            }`}
-                    >
+                    <div className={`p-4 border rounded-lg space-y-3 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                         <button
                             onClick={() => {
                                 setIsAnimating(true);
@@ -600,7 +604,7 @@ export default function LinearRegression() {
                                 setManualB(null);
                             }}
                             disabled={isAnimating}
-                            className="bg-green-600 text-white px-4 py-2 rounded w-full disabled:bg-gray-400 transition hover:bg-green-700"
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full disabled:bg-gray-500 transition-colors"
                         >
                             {isAnimating ? "Animating..." : "Animate BFL"}
                         </button>
@@ -610,12 +614,11 @@ export default function LinearRegression() {
                                 type="checkbox"
                                 checked={showResiduals}
                                 onChange={(e) => setShowResiduals(e.target.checked)}
-                                className="accent-blue-600"
+                                className="rounded"
                             />
                             <span className="text-sm">Show Residuals</span>
                         </label>
 
-                        {/* Animation Speed */}
                         <div>
                             <div className="text-sm mb-1 flex justify-between">
                                 <span>Animation Speed:</span>
@@ -627,17 +630,14 @@ export default function LinearRegression() {
                                 max={100}
                                 value={animSpeed}
                                 onChange={(e) => setAnimSpeed(Number(e.target.value))}
-                                className="w-full cursor-pointer accent-green-600"
+                                className="w-full"
                             />
                         </div>
 
-                        {/* Manual Slope */}
                         <div>
                             <div className="text-sm mb-1 flex justify-between">
                                 <span>Manual Slope (m):</span>
-                                <span className="font-medium">
-                                    {(manualM ?? currentM).toFixed(2)}
-                                </span>
+                                <span className="font-medium">{(manualM ?? currentM).toFixed(2)}</span>
                             </div>
                             <input
                                 type="range"
@@ -649,17 +649,14 @@ export default function LinearRegression() {
                                     setManualM(Number(e.target.value));
                                     setIsAnimating(false);
                                 }}
-                                className="w-full cursor-pointer accent-blue-500"
+                                className="w-full"
                             />
                         </div>
 
-                        {/* Manual Intercept */}
                         <div>
                             <div className="text-sm mb-1 flex justify-between">
                                 <span>Manual Intercept (b):</span>
-                                <span className="font-medium">
-                                    {(manualB ?? currentB).toFixed(2)}
-                                </span>
+                                <span className="font-medium">{(manualB ?? currentB).toFixed(2)}</span>
                             </div>
                             <input
                                 type="range"
@@ -671,11 +668,10 @@ export default function LinearRegression() {
                                     setManualB(Number(e.target.value));
                                     setIsAnimating(false);
                                 }}
-                                className="w-full cursor-pointer accent-purple-500"
+                                className="w-full"
                             />
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>

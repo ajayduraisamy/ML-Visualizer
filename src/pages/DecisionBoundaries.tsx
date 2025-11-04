@@ -3,8 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 type Label = "A" | "B";
 type Point = { x: number; y: number; label: Label };
 
-const WIDTH = 640;
-const HEIGHT = 400;
+
 const GRID_COLS = 60; // resolution for decision grid
 const GRID_ROWS = 40;
 const PADDING = 40; // canvas padding
@@ -161,7 +160,7 @@ export default function DecisionBoundariesPage() {
         ctx.clearRect(0, 0, width, height);
 
         // background
-        ctx.fillStyle = theme === "dark" ? "#0b1220" : "#ffffff";
+        ctx.fillStyle = "#0b1220" ;
         ctx.fillRect(0, 0, width, height);
 
         const { xMin, xMax, yMin, yMax } = domain;
@@ -169,7 +168,7 @@ export default function DecisionBoundariesPage() {
         const plotH = height - PADDING * 2;
 
         // axes box
-        ctx.strokeStyle = theme === "dark" ? "#44556a" : "#e6eef8";
+        ctx.strokeStyle =  "#44556a" ;
         ctx.lineWidth = 1;
         ctx.strokeRect(PADDING, PADDING, plotW, plotH);
 
@@ -195,7 +194,7 @@ export default function DecisionBoundariesPage() {
         }
 
         // axes ticks and labels
-        ctx.fillStyle = theme === "dark" ? "#cbd5e1" : "#334155";
+        ctx.fillStyle = "#cbd5e1" ;
         ctx.font = "12px Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
@@ -234,7 +233,7 @@ export default function DecisionBoundariesPage() {
         ctx.beginPath();
         ctx.arc(PADDING + 10, PADDING + plotH + 30, 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = theme === "dark" ? "#cbd5e1" : "#64748b";
+        ctx.fillStyle = "#cbd5e1";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         ctx.fillText("Class A Points", PADDING + 22, PADDING + plotH + 30);
@@ -243,7 +242,7 @@ export default function DecisionBoundariesPage() {
         ctx.beginPath();
         ctx.arc(PADDING + 150, PADDING + plotH + 30, 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = theme === "dark" ? "#cbd5e1" : "#64748b";
+        ctx.fillStyle = "#cbd5e1" ;
         ctx.fillText("Class B Points", PADDING + 162, PADDING + plotH + 30);
 
         // For SVM, draw decision boundary line
