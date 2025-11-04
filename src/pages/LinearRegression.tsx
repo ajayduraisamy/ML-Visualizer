@@ -1,6 +1,5 @@
-// src/pages/LinearRegression.tsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
-
+import { useTheme } from "../context/ThemeContext";
 /**
  * Canvas Linear Regression Visualiser
  * - React + TypeScript + Tailwind
@@ -8,7 +7,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
  * - Sliders for slope & intercept (manual)
  * - Animate button: animates current (m,b) -> computed best-fit (m*, b*)
  * - Residual dashed lines update live during animation
- * - Hover tooltip shows x,y,residual
+ * - MODIFIED: Hover tooltip is now drawn ON THE CANVAS
+ * - MODIFIED: Animation is now an "elliptical spiral"
  */
 
 type Point = { x: number; y: number };
@@ -34,6 +34,7 @@ function calcRegression(points: Point[]) {
 }
 
 export default function LinearRegression() {
+     const { theme } = useTheme();
     const [points, setPoints] = useState<Point[]>([
         { x: 1, y: 3 },
         { x: 2, y: 5 },
@@ -61,7 +62,6 @@ export default function LinearRegression() {
 
     // hover tooltip
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-    const [tooltipPos, setTooltipPos] = useState<{ left: number; top: number } | null>(null);
 
     // autoscale domain
     const getDomain = useCallback(() => {
@@ -200,7 +200,62 @@ export default function LinearRegression() {
         ctx.fillText(`y = ${currentM.toFixed(4)} x + ${currentB.toFixed(4)}`, PADDING + 2, 20);
         ctx.fillStyle = "#6b7280";
         ctx.font = "12px sans-serif";
-        ctx.fillText(`Total SSE: ${totalError.toFixed(4)}`, PADDING + 2, 38);
+        ctx.fillText(`Total Error (Sum of Squared Residuals): ${totalError.toFixed(4)}`, PADDING + 2, 38);
+
+        // --- MODIFIED --- Draw tooltip on canvas if hovering
+        if (hoverIdx !== null) {
+            const p = points[hoverIdx];
+            const { px, py } = dataToPixel(p.x, p.y, width, height);
+
+            // Tooltip text
+            const line1 = `Regression Line: ${(currentM * p.x + currentB).toFixed(4)}`;
+            const lines = points.map((pt, i) => {
+                const residual = pt.y - (currentM * pt.x + currentB);
+                return `Residual ${i}: ${residual.toFixed(4)}`;
+            });
+            const allLines = [line1, ...lines];
+
+            // Calculate box size
+            ctx.font = "12px sans-serif";
+            const textWidth = Math.max(...allLines.map(line => ctx.measureText(line).width));
+            const boxWidth = textWidth + 20;
+            const boxHeight = allLines.length * 18 + 10;
+
+            // Position box intelligently: try right, then left
+            let boxX = px + 15;
+            let boxY = py - boxHeight / 2;
+
+            // If box goes off-screen right, move it to the left
+            if (boxX + boxWidth > width - PADDING) {
+                boxX = px - boxWidth - 15;
+            }
+            // If box goes off-screen top/bottom (less likely), adjust
+            if (boxY < PADDING) {
+                boxY = PADDING;
+            }
+            if (boxY + boxHeight > height - PADDING) {
+                boxY = height - PADDING - boxHeight;
+            }
+
+
+            // Draw box
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.strokeStyle = "#999";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(boxX, boxY, boxWidth, boxHeight);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw text
+            ctx.fillStyle = "red";
+            ctx.fillText(allLines[0], boxX + 10, boxY + 18);
+
+            ctx.fillStyle = "green";
+            for (let i = 1; i < allLines.length; i++) {
+                ctx.fillText(allLines[i], boxX + 10, boxY + 18 + i * 18);
+            }
+        }
     }, [points, currentM, currentB, getDomain, hoverIdx, showResiduals, totalError]);
 
     // initial set current line to computed line
@@ -211,10 +266,13 @@ export default function LinearRegression() {
         }
     }, [targetM, targetB, manualM, manualB]);
 
-    // animation: random movement + smooth settle to target
+    // =================================================================
+    // --- THIS IS THE UPDATED "SPIRAL" ANIMATION LOGIC ---
+    // =================================================================
     useEffect(() => {
         if (!isAnimating) return;
-        const duration = Math.max(80, (101 - animSpeed) * 8);
+
+        const duration = Math.max(80, animSpeed * 8);
         const startTime = performance.now();
         const startM = currentM;
         const startB = currentB;
@@ -224,16 +282,32 @@ export default function LinearRegression() {
         const step = (t: number) => {
             const elapsed = t - startTime;
             const norm = Math.min(1, elapsed / duration);
-            // ease in-out cubic
+
+            // Ease in-out cubic (same as before)
             const ease = norm < 0.5 ? 4 * norm * norm * norm : 1 - Math.pow(-2 * norm + 2, 3) / 2;
 
-            // small random jitter effect (left-right, up-down wiggle)
-            const randomM = (Math.random() - 0.5) * 0.3; // slope variation
-            const randomB = (Math.random() - 0.5) * 0.8; // intercept variation
+            // 1. Smooth base movement (same as before)
+            const baseM = startM + deltaM * ease;
+            const baseB = startB + deltaB * ease;
 
-            // combine formula: smooth movement + noise
-            const newM = startM + deltaM * ease + randomM * (1 - ease);
-            const newB = startB + deltaB * ease + randomB * (1 - ease);
+            // 2. Calculate the shrinking "radius" of the spiral
+            // This goes from 1 (start) down to 0 (end)
+            const spiralRadius = 1 - ease;
+
+            // 3. Define the angle for the spiral
+            // This spins the line around
+            const angle = elapsed / 80; // You can change 80 to make it spin faster or slower
+
+            // 4. Calculate the "shape" - an elliptical spiral
+            // 'm' (slope) moves with Cosine 
+            // 'b' (intercept) moves with Sine
+            // This is the "x, y combined" motion.
+            const spiralM = Math.cos(angle) * 2.0 * spiralRadius; // 2.0 is the "width" of the spiral
+            const spiralB = Math.sin(angle) * 4.0 * spiralRadius; // 4.0 is the "height" of the spiral
+
+            // 5. Combine the base movement with the spiral
+            const newM = baseM + spiralM;
+            const newB = baseB + spiralB;
 
             setCurrentM(newM);
             setCurrentB(newB);
@@ -257,6 +331,10 @@ export default function LinearRegression() {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAnimating, animSpeed, targetM, targetB]);
+    // =================================================================
+    // --- END OF UPDATED ANIMATION LOGIC ---
+    // =================================================================
+
 
     // redraw on changes
     useEffect(() => {
@@ -274,6 +352,14 @@ export default function LinearRegression() {
             const r = rect();
             const px = e.clientX - r.left;
             const py = e.clientY - r.top;
+
+            // Check if cursor is inside the plotting area
+            if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
+                setHoverIdx(null);
+                draw();
+                return;
+            }
+
             // find nearest point
             let nearest: number | null = null;
             let minD = 9999;
@@ -287,20 +373,26 @@ export default function LinearRegression() {
                     nearest = i;
                 }
             });
-            setHoverIdx(nearest);
-            if (nearest !== null) {
-                // show tooltip near cursor
-                setTooltipPos({ left: px + 12, top: py + 6 });
-            } else {
-                setTooltipPos(null);
-            }
-            draw();
+
+            // Only update state if hover index changes, to avoid too many re-renders
+            setHoverIdx(prevIdx => {
+                if (prevIdx !== nearest) {
+                    draw(); // Trigger draw on change
+                }
+                return nearest;
+            });
         };
 
         const onClick = (e: MouseEvent) => {
             const r = rect();
             const px = e.clientX - r.left;
             const py = e.clientY - r.top;
+
+            // Only add point if click is inside the plotting area
+            if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
+                return;
+            }
+
             const width = canvas.clientWidth;
             const height = canvas.clientHeight;
             const data = pixelToData(px, py, width, height);
@@ -319,7 +411,6 @@ export default function LinearRegression() {
         canvas.addEventListener("mousemove", onMove);
         canvas.addEventListener("mouseleave", () => {
             setHoverIdx(null);
-            setTooltipPos(null);
             draw();
         });
         canvas.addEventListener("click", onClick);
@@ -329,7 +420,7 @@ export default function LinearRegression() {
             canvas.removeEventListener("click", onClick);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [points, currentM, currentB, getDomain]);
+    }, [points, currentM, currentB, getDomain, draw]); // Added draw to dependency array
 
     // sliders manual control
     useEffect(() => {
@@ -343,14 +434,20 @@ export default function LinearRegression() {
 
     // UI handlers
     const addPointFromInputs = () => {
-        const x = parseFloat((document.getElementById("inpX") as HTMLInputElement).value || "");
-        const y = parseFloat((document.getElementById("inpY") as HTMLInputElement).value || "");
+        const xEl = document.getElementById("inpX") as HTMLInputElement;
+        const yEl = document.getElementById("inpY") as HTMLInputElement;
+        const x = parseFloat(xEl.value || "");
+        const y = parseFloat(yEl.value || "");
+
         if (Number.isFinite(x) && Number.isFinite(y)) {
             setPoints((p) => [...p, { x, y }]);
             setManualM(null);
             setManualB(null);
             setIsAnimating(true);
             setShowResiduals(true);
+            // Clear inputs
+            xEl.value = "";
+            yEl.value = "";
         }
     };
     const clearPoints = () => {
@@ -362,168 +459,234 @@ export default function LinearRegression() {
     };
 
     return (
-        <div className="p-6 space-y-6">
-            <h1 className="text-2xl font-bold">Linear Regression — Interactive Visualiser</h1>
+        <div className={`p-6 space-y-6 ${theme === "dark" ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+
+        
+            <h1 className="text-2xl font-bold">Animated Linear Regression</h1>
 
             <div className="grid md:grid-cols-3 gap-6">
                 {/* Left Chart */}
-                <div className="md:col-span-2 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
+                <div className={`md:col-span-2 p-4 border rounded-lg ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-black"}`}>
+
                     <div className="flex justify-between items-start mb-2">
                         <div>
                             <h2 className="text-lg font-semibold">Regression Equation</h2>
-                            <div className="text-sm text-gray-600">
-                                y = <span className="text-red-600 font-medium">{currentM.toFixed(4)}</span> × x +{" "}
-                                <span className="text-red-600 font-medium">{currentB.toFixed(4)}</span>
+                            <div className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                                y ={" "}
+                                <span className={`${theme === "dark" ? "text-red-400" : "text-red-600"} font-medium`}>
+                                    {currentM.toFixed(4)}
+                                </span>{" "}
+                                × x +{" "}
+                                <span className={`${theme === "dark" ? "text-red-400" : "text-red-600"} font-medium`}>
+                                    {currentB.toFixed(4)}
+                                </span>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">Total SSE: {totalError.toFixed(4)}</div>
+
+                            <div className={`text-xs mt-1 ${theme === "dark" ? "text-white" : "text-gray-500"}`}>
+                                Total Error (Sum of Squared Residuals): {totalError.toFixed(4)}
+                            </div>
+
                         </div>
 
-                        <div className="text-right text-xs text-gray-500">
-                            Points: <span className="font-medium text-gray-800">{points.length}</span>
+                        <div className={`text-right text-xs ${theme === "dark" ? "text-white" : "text-gray-500"}`}>
+                            Points:{" "}
+                            <span className={`font-medium ${theme === "dark" ? "text-white" : "text-gray-800"}`}>
+                                {points.length}
+                            </span>
                         </div>
+
                     </div>
 
                     <div className="relative">
                         <canvas
                             ref={canvasRef}
                             style={{ width: "100%", height: 420 }}
-                            className="w-full rounded bg-white border"
+                            className="w-full rounded bg-white border cursor-crosshair"
                         />
-                        {/* Tooltip */}
-                        {hoverIdx !== null && tooltipPos && (
-                            <div
-                                style={{ left: tooltipPos.left, top: tooltipPos.top }}
-                                className="absolute pointer-events-none bg-white border text-xs p-2 rounded shadow"
-                            >
-                                <div>
-                                    <span className="font-medium">Point</span> #{hoverIdx + 1}
-                                </div>
-                                <div className="text-sm">
-                                    x: {points[hoverIdx].x.toFixed(3)}, y: {points[hoverIdx].y.toFixed(3)}
-                                </div>
-                                <div className="text-sm text-green-600">
-                                    res: {(points[hoverIdx].y - (currentM * points[hoverIdx].x + currentB)).toFixed(4)}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Right controls / info */}
-                <div className="space-y-4">
-                    <div className="p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
+                {/* Right sidebar */}
+                <div className="space-y-4 md:col-span-1">
+                    <div
+                        className={`p-4 border rounded-lg ${theme === "dark"
+                                ? "bg-gray-800 border-gray-700 text-white"
+                                : "bg-white border-gray-300 text-gray-900"
+                            }`}
+                    >
                         <h3 className="font-semibold mb-2">How the Best Fit Line Works</h3>
-                        <ol className="list-decimal ml-4 text-sm text-gray-600">
-                            <li>Compute slope m and intercept b using least squares.</li>
-                            <li>{'Animate the red line from current -> computed (press Animate BFL).'}</li>
 
-                            <li>Residuals (green dashed) show distance from point to line.</li>
-                            <li>Click canvas to add points; sliders allow manual tuning.</li>
+                      
+                        <ol
+                            className={`list-decimal ml-4 text-sm space-y-2 ${theme === "dark" ? "text-gray-300" : "text-gray-600"
+                                }`}
+                        >
+
+                            <li><strong>Calculate mean of X and Y</strong> – Find the "center" of the data.</li>
+                            <li><strong>Calculate slope</strong> – Using the formula: slope = Σ(x - x̄)(y - ȳ) / Σ(x - x̄)²</li>
+                            <li><strong>Calculate y-intercept</strong> – Using the formula: intercept = ȳ − (slope × x̄)</li>
+                            <li><strong>Minimize residuals</strong> – The green dotted lines show the errors (distances) between actual and predicted values.</li>
+                            <li><strong>Sum of squared errors</strong> – The optimal line minimizes the sum of these squared errors.</li>
+
                         </ol>
                     </div>
 
-                    <div className="p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
-                        <h3 className="font-semibold mb-2">Data Points</h3>
-                        <div className="h-40 overflow-auto">
+                   <div
+  className={`p-4 border rounded-lg ${
+    theme === "dark"
+      ? "bg-gray-800 border-gray-700 text-white"
+      : "bg-white border-gray-300 text-gray-900"
+  }`}
+>
+  <h3 className="font-semibold mb-2">Data Points</h3>
+
+  <div className="flex gap-2 mb-3">
+    <input
+      id="inpX"
+      placeholder="X value"
+      className={`border p-2 rounded w-full ${
+        theme === "dark"
+          ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+      }`}
+    />
+    <input
+      id="inpY"
+      placeholder="Y value"
+      className={`border p-2 rounded w-full ${
+        theme === "dark"
+          ? "bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+      }`}
+    />
+  </div>
+
+  <div className="flex gap-2 mb-3">
+    <button
+      onClick={addPointFromInputs}
+      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full transition"
+    >
+      Add Point
+    </button>
+    <button
+      onClick={clearPoints}
+      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full transition"
+    >
+      Clear Data
+    </button>
+  </div>
+
+
+                        <div className="h-40 overflow-auto border rounded">
                             <table className="w-full text-sm">
-                                <thead>
+                                <thead className="bg-gray-50 sticky top-0">
                                     <tr className="text-gray-600">
-                                        <th className="text-left px-2">X</th>
-                                        <th className="text-left px-2">Y</th>
+                                        <th className="text-left px-2 py-1">X</th>
+                                        <th className="text-left px-2 py-1">Y</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {points.map((p, i) => (
-                                        <tr key={i}>
-                                            <td className="px-2">{p.x}</td>
-                                            <td className="px-2">{p.y}</td>
+                                        <tr key={i} className="border-t">
+                                            <td className="px-2 py-1">{p.x}</td>
+                                            <td className="px-2 py-1">{p.y}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Bottom controls */}
-            <div className="p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex flex-wrap gap-3 items-center mb-3">
-                    <input id="inpX" placeholder="X value" className="border p-2 rounded w-24" />
-                    <input id="inpY" placeholder="Y value" className="border p-2 rounded w-24" />
-                    <button onClick={addPointFromInputs} className="bg-blue-600 text-white px-4 py-2 rounded">
-                        Add Point
-                    </button>
-                    <button onClick={clearPoints} className="bg-red-500 text-white px-4 py-2 rounded">
-                        Clear Data
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            setIsAnimating(true);
-                            setShowResiduals(true);
-                            setManualM(null);
-                            setManualB(null);
-                        }}
-                        className="bg-green-600 text-white px-4 py-2 rounded"
+                    <div
+                        className={`p-4 border rounded-lg space-y-3 ${theme === "dark"
+                                ? "bg-gray-800 border-gray-700 text-white"
+                                : "bg-white border-gray-300 text-gray-900"
+                            }`}
                     >
-                        Animate BFL
-                    </button>
-
-                    <label className="flex items-center gap-2 ml-4">
-                        <input
-                            type="checkbox"
-                            checked={showResiduals}
-                            onChange={(e) => setShowResiduals(e.target.checked)}
-                        />
-                        <span className="text-sm">Show Residuals</span>
-                    </label>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                    <div>
-                        <div className="text-sm mb-1">Animation Speed</div>
-                        <input
-                            type="range"
-                            min={1}
-                            max={100}
-                            value={animSpeed}
-                            onChange={(e) => setAnimSpeed(Number(e.target.value))}
-                            className="w-full"
-                        />
-                    </div>
-
-                    <div>
-                        <div className="text-sm mb-1">Manual Slope (m)</div>
-                        <input
-                            type="range"
-                            min={-5}
-                            max={5}
-                            step={0.01}
-                            value={manualM ?? currentM}
-                            onChange={(e) => {
-                                setManualM(Number(e.target.value));
-                                setIsAnimating(false);
+                        <button
+                            onClick={() => {
+                                setIsAnimating(true);
+                                setShowResiduals(true);
+                                setManualM(null);
+                                setManualB(null);
                             }}
-                            className="w-full"
-                        />
+                            disabled={isAnimating}
+                            className="bg-green-600 text-white px-4 py-2 rounded w-full disabled:bg-gray-400 transition hover:bg-green-700"
+                        >
+                            {isAnimating ? "Animating..." : "Animate BFL"}
+                        </button>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={showResiduals}
+                                onChange={(e) => setShowResiduals(e.target.checked)}
+                                className="accent-blue-600"
+                            />
+                            <span className="text-sm">Show Residuals</span>
+                        </label>
+
+                        {/* Animation Speed */}
+                        <div>
+                            <div className="text-sm mb-1 flex justify-between">
+                                <span>Animation Speed:</span>
+                                <span className="font-medium">{animSpeed}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min={1}
+                                max={100}
+                                value={animSpeed}
+                                onChange={(e) => setAnimSpeed(Number(e.target.value))}
+                                className="w-full cursor-pointer accent-green-600"
+                            />
+                        </div>
+
+                        {/* Manual Slope */}
+                        <div>
+                            <div className="text-sm mb-1 flex justify-between">
+                                <span>Manual Slope (m):</span>
+                                <span className="font-medium">
+                                    {(manualM ?? currentM).toFixed(2)}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min={-5}
+                                max={5}
+                                step={0.01}
+                                value={manualM ?? currentM}
+                                onChange={(e) => {
+                                    setManualM(Number(e.target.value));
+                                    setIsAnimating(false);
+                                }}
+                                className="w-full cursor-pointer accent-blue-500"
+                            />
+                        </div>
+
+                        {/* Manual Intercept */}
+                        <div>
+                            <div className="text-sm mb-1 flex justify-between">
+                                <span>Manual Intercept (b):</span>
+                                <span className="font-medium">
+                                    {(manualB ?? currentB).toFixed(2)}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min={-10}
+                                max={10}
+                                step={0.01}
+                                value={manualB ?? currentB}
+                                onChange={(e) => {
+                                    setManualB(Number(e.target.value));
+                                    setIsAnimating(false);
+                                }}
+                                className="w-full cursor-pointer accent-purple-500"
+                            />
+                        </div>
                     </div>
 
-                    <div>
-                        <div className="text-sm mb-1">Manual Intercept (b)</div>
-                        <input
-                            type="range"
-                            min={-10}
-                            max={10}
-                            step={0.01}
-                            value={manualB ?? currentB}
-                            onChange={(e) => {
-                                setManualB(Number(e.target.value));
-                                setIsAnimating(false);
-                            }}
-                            className="w-full"
-                        />
-                    </div>
                 </div>
             </div>
         </div>
