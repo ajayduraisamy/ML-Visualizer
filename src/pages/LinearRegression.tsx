@@ -1,19 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import  { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
-/**
- * Canvas Linear Regression Visualiser
- * - React + TypeScript + Tailwind
- * - Click canvas to add points
- * - Sliders for slope & intercept (manual)
- * - Animate button: animates current (m,b) -> computed best-fit (m*, b*)
- * - Residual dashed lines update live during animation
- * - MODIFIED: Hover tooltip is now drawn ON THE CANVAS
- * - MODIFIED: Animation is now an "elliptical spiral"
- */
+
 
 type Point = { x: number; y: number };
 
-const PADDING = 48; // canvas padding for axes area
+const PADDING = 48; 
 const POINT_RADIUS = 5;
 
 function calcRegression(points: Point[]) {
@@ -178,7 +169,7 @@ export default function LinearRegression() {
 
         // draw residual dashed lines if enabled
         if (showResiduals) {
-            points.forEach((p, i) => {
+            points.forEach((p) => {
                 const predictedY = currentM * p.x + currentB;
                 const { px: px1, py: py1 } = dataToPixel(p.x, p.y, width, height);
                 const { px: px2, py: py2 } = dataToPixel(p.x, predictedY, width, height);

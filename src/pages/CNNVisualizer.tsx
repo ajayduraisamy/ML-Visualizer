@@ -330,7 +330,7 @@ export default function CNNVisualizer() {
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         CNN Visualizer for Digit Recognition
                     </h1>
-                    <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                    <p className="text-lg  max-w-3xl mx-auto">
                         Explore how Convolutional Neural Networks process and recognize handwritten digits through interactive visualization
                     </p>
                 </div>
