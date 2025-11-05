@@ -516,8 +516,91 @@ export default function NeuralNetworks() {
                                 </div>
                             </div>
                         </section>
+
+                        <section
+                            className={`p-6 rounded-2xl shadow-lg border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                                }`}
+                        >
+                            <h3 className="text-xl font-bold mb-4">Forward Pass: Making Predictions</h3>
+                            <div className="space-y-3">
+                                <div className="flex items-center">
+                                    <div className="w-4 h-4 bg-blue-400 rounded-full mr-3"></div>
+                                    <span>Mathematical Formulation:</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="w-4 h-0.5 bg-green-500 mr-3"></div>
+                                    <span>Green lines = positive weights</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="w-4 h-0.5 bg-red-500 mr-3"></div>
+                                    <span>Red lines = negative weights</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <div className="w-4 h-0.5 bg-gray-500 mr-3"></div>
+                                    <span>Line thickness = weight magnitude</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        
                     </div>
                 </div>
+
+                <section
+                    className={`mt-6 p-6 rounded-2xl shadow-lg border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                        }`}
+                >
+                    <h3 className="text-xl font-bold mb-4">Backpropagation: Learning</h3>
+
+                    <p className="mb-3">
+                        The neural network learns through backpropagation — adjusting weights and biases to minimize prediction error.
+                    </p>
+
+                    <div className="mb-4">
+                        <div className="font-semibold mb-2">Mathematical Formulation:</div>
+                        <pre
+                            className="whitespace-pre-wrap text-sm rounded p-3 border 
+             bg-gray-50 text-gray-800 
+             dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
+                        >
+                            {`1. Calculate the error:
+E = target - prediction
+
+2. Output layer delta:
+δ_output = E * σ(z) * (1 - σ(z))
+
+(where σ is the sigmoid activation)
+
+3. Hidden layer delta:
+δ_hidden = (w_output * δ_output) * σ(z_hidden) * (1 - σ(z_hidden))
+
+4. Weight & bias updates:
+Δw = learning_rate * δ * activation_input
+Δb = learning_rate * δ
+
+5. Apply updates:
+w_new = w_old + Δw
+b_new = b_old + Δb`}
+                        </pre>
+
+                    </div>
+
+                    <div>
+                        <div className="font-semibold mb-2">Step-by-step:</div>
+                        <ol className="list-decimal list-inside space-y-2 text-sm">
+                            <li>Calculate the error between the predicted and target output.</li>
+                            <li>Compute the error gradient (δ) for the output layer using the derivative of the activation.</li>
+                            <li>Propagate the delta backward to compute δ for the hidden layer(s).</li>
+                            <li>Calculate weight updates Δw = learning_rate * δ * activation_input for each connection.</li>
+                            <li>Calculate bias updates Δb = learning_rate * δ for each neuron.</li>
+                            <li>Apply updates: add Δw and Δb to the existing weights and biases.</li>
+                        </ol>
+                    </div>
+
+                    <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                        Tip: smaller learning rates lead to more stable but slower convergence; monitor the loss to adjust dynamically.
+                    </p>
+                </section>
             </div>
         </div>
     );
