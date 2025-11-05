@@ -45,7 +45,7 @@ export default function Compare() {
     const animationRef = useRef<number>(0);
     const frameRef = useRef<number>(0);
 
-    // Calculate regression statistics
+
     const calculateRegression = () => {
         const xs = points.map((p) => p.x);
         const ys = points.map((p) => p.y);
@@ -59,7 +59,7 @@ export default function Compare() {
         const slope = num / den;
         const intercept = meanY - slope * meanX;
 
-        // Calculate R-squared
+        
         const regressionY = xs.map((x) => slope * x + intercept);
         const ssRes = ys.reduce((acc, y, i) => acc + (y - regressionY[i]) ** 2, 0);
         const ssTot = ys.reduce((acc, y) => acc + (y - meanY) ** 2, 0);
@@ -80,7 +80,7 @@ export default function Compare() {
 
         const { slope, intercept, regressionY, xs } = calculateRegression();
 
-        // 🟩 Linear Regression Chart with Animation
+        
         const linearChart = new Chart(ctx1, {
             type: "scatter",
             data: {
@@ -151,7 +151,7 @@ export default function Compare() {
             },
         });
 
-        // 🧠 Neural Network Activation Visualization with Animation
+        
         const animateActivation = (frame: number) => {
             const progress = (frame % 100) / 100;
             return Array.from({ length: 50 }, (_, i) => {
@@ -214,7 +214,7 @@ export default function Compare() {
             },
         });
 
-        // 🧩 CNN Feature Map Visualization with Animation
+        
         const animateFeatures = (frame: number) => {
             const progress = (frame % 60) / 60;
             return [0.2, 0.6, 0.8, 0.5, 0.9].map((val, i) =>
@@ -261,7 +261,7 @@ export default function Compare() {
             },
         });
 
-        // Animation loop
+       
         const animate = () => {
             frameRef.current++;
 
@@ -335,7 +335,7 @@ export default function Compare() {
                     Model Comparison
                 </h1>
 
-                {/* Inputs */}
+               
                 <div className="flex flex-wrap justify-center gap-3 mb-6">
                     <input
                         type="number"
@@ -365,9 +365,9 @@ export default function Compare() {
                     </button>
                 </div>
 
-                {/* Charts */}
+               
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    {/* Linear Regression Card */}
+                   
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                                 ? "bg-gray-800 border-gray-700"
@@ -390,7 +390,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={linearChartRef} height={200}></canvas>
 
-                        {/* Mathematical Calculations */}
+                       
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-blue-300">
                                 <FaCalculator /> Regression Calculations
@@ -405,7 +405,7 @@ export default function Compare() {
                         </div>
                     </div>
 
-                    {/* Neural Network Card */}
+                  
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                                 ? "bg-gray-800 border-gray-700"
@@ -428,7 +428,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={nnChartRef} height={200}></canvas>
 
-                        {/* Activation Functions */}
+                       
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-yellow-300">
                                 <FaCalculator /> Activation Functions
@@ -443,7 +443,7 @@ export default function Compare() {
                         </div>
                     </div>
 
-                    {/* CNN Card */}
+                   
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                                 ? "bg-gray-800 border-gray-700"
@@ -466,7 +466,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={cnnChartRef} height={200}></canvas>
 
-                        {/* CNN Operations */}
+                        
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-green-300">
                                 <FaCalculator /> CNN Operations
@@ -482,7 +482,7 @@ export default function Compare() {
                     </div>
                 </div>
 
-                {/* Enhanced Explanations */}
+                
                 <div className="grid md:grid-cols-3 gap-6">
                     <div className={`rounded-xl p-5 transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border border-gray-700"

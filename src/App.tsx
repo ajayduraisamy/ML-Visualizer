@@ -4,7 +4,8 @@ import Footer from './components/Footer'
 import Navbar from './components/Navbar'
 import About from './pages/About'
 import CNNVisualizer from './pages/CNNVisualizer'
-import Compare from './pages/Compare'
+import Compare from './pages/Compare.tsx';
+
 import DecisionBoundaries from './pages/DecisionBoundaries'
 import Home from './pages/Home'
 import LinearRegression from './pages/LinearRegression'
