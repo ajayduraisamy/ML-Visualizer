@@ -1,4 +1,4 @@
-// src/pages/CNNVisualizer.tsx
+
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
@@ -26,12 +26,12 @@ export default function CNNVisualizer() {
     });
     const [probs, setProbs] = useState<number[]>(() => Array(10).fill(0));
 
-    // Refs for canvases
+   
     const inputCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const tileCanvasesRef = useRef<Record<number, HTMLCanvasElement | null>>({});
     const layerCanvasesRef = useRef<Partial<Record<LayerKey, HTMLCanvasElement | null>>>({});
 
-    // deterministic PRNG per digit
+    
     function seedRandom(seed: number) {
         let s = seed % 2147483647;
         if (s <= 0) s += 2147483646;
@@ -41,7 +41,7 @@ export default function CNNVisualizer() {
         };
     }
 
-    // draw a stylized digit on a small canvas (black bg, white digit)
+    
     function drawDigitCanvas(canvas: HTMLCanvasElement, digit: number, size = 28) {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
@@ -58,7 +58,7 @@ export default function CNNVisualizer() {
         ctx.fillText(String(digit), size / 2, size / 2 + 1);
     }
 
-    // initial thumbnails once
+  
     useEffect(() => {
         for (let d = 0; d <= 9; d++) {
             const c = tileCanvasesRef.current[d];
@@ -66,14 +66,14 @@ export default function CNNVisualizer() {
         }
     }, []);
 
-    // when selected digit changes, draw it into hidden input canvas
+    
     useEffect(() => {
         if (inputCanvasRef.current && selectedDigit !== null) {
             drawDigitCanvas(inputCanvasRef.current, selectedDigit, 28);
         }
     }, [selectedDigit]);
 
-    // helper: sample input 28x28 grayscale (0..1)
+  
     function sampleInput(): { w: number; h: number; data: number[] } | null {
         const c = inputCanvasRef.current;
         if (!c) return null;
@@ -89,7 +89,7 @@ export default function CNNVisualizer() {
         return { w, h, data: out };
     }
 
-    // draw a layer's feature map into canvas based on simplified transforms
+    
     function drawLayer(layer: LayerKey, digitSeed: number) {
         const canvas = layerCanvasesRef.current[layer];
         if (!canvas) return;
@@ -203,13 +203,13 @@ export default function CNNVisualizer() {
             }
         }
 
-        // Enhanced rendering with gradient effect for premium look
+        
         for (let y = 0; y < oh; y++) {
             for (let x = 0; x < ow; x++) {
                 const v = Math.max(0, Math.min(1, out[y * ow + x] || 0));
                 const g = Math.floor(v * 255);
 
-                // Create gradient effect for premium visualization
+                
                 if (v > 0.7) {
                     ctx.fillStyle = `rgb(${g}, ${Math.floor(g * 0.8)}, ${Math.floor(g * 0.6)})`;
                 } else if (v > 0.3) {
@@ -222,7 +222,7 @@ export default function CNNVisualizer() {
         }
     }
 
-    // main processing flow: animates layers and updates probs
+
     async function processPipeline(digit: number) {
         if (processing) return;
         setProcessing(true);
@@ -325,7 +325,7 @@ export default function CNNVisualizer() {
             : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-black"
             }`}>
             <div className="max-w-7xl mx-auto space-y-8">
-                {/* Header Section */}
+              
                 <div className="text-center space-y-4 pt-8">
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         CNN Visualizer for Digit Recognition
@@ -335,7 +335,7 @@ export default function CNNVisualizer() {
                     </p>
                 </div>
 
-                {/* Alert Banner */}
+                
                 {message && (
                     <div className={`rounded-xl p-4 border-l-4 ${message.includes("complete")
                             ? "bg-green-50 dark:bg-green-900/20 border-green-400 text-green-700 dark:text-green-300"
@@ -360,9 +360,9 @@ export default function CNNVisualizer() {
                     </div>
                 )}
 
-                {/* Main Content Grid */}
+               
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    {/* Left Panel - Digit Selection */}
+                   
                     <div
                         className={`rounded-2xl shadow-xl border p-6 
     ${theme === "dark"
@@ -445,7 +445,7 @@ export default function CNNVisualizer() {
                         </div>
                     </div>
 
-                    {/* Right Panel - Predictions */}
+                   
                     <div
                         className={`rounded-2xl shadow-xl border p-6 
     ${theme === "dark"
@@ -493,7 +493,7 @@ export default function CNNVisualizer() {
                                 ))}
                             </div>
 
-                            {/* Confidence Meter */}
+                          
                             <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-sm font-medium ">
@@ -514,7 +514,7 @@ export default function CNNVisualizer() {
                     </div>
                 </div>
 
-                {/* CNN Layers Visualization */}
+                
                 <div
                     className={`rounded-2xl shadow-xl border p-6 
     ${theme === "dark"
@@ -543,7 +543,7 @@ export default function CNNVisualizer() {
                                                 : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50"
                                         }`}
                                 >
-                                    {/* Status Indicator */}
+                                    
                                     <div className="absolute -top-2 -right-2">
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${layerStatus[layer.key] === "done"
                                                 ? "bg-green-500 text-white"
@@ -581,7 +581,7 @@ export default function CNNVisualizer() {
                             ))}
                         </div>
 
-                        {/* Pipeline Flow Indicator */}
+                       
                         <div className="flex justify-center items-center pt-6">
                             <div className="flex items-center space-x-2 text-sm ">
                                 <span>Input</span>
@@ -602,7 +602,7 @@ export default function CNNVisualizer() {
                     </div>
                 </div>
 
-                {/* Educational Content */}
+               
                 <div
                     className={`rounded-2xl shadow-xl border p-6 
     ${theme === "dark"
@@ -674,7 +674,7 @@ export default function CNNVisualizer() {
                 </div>
             </div>
 
-            {/* Hidden input canvas */}
+            
             <div style={{ display: "none" }}>
                 <canvas ref={inputCanvasRef} width={28} height={28} />
             </div>

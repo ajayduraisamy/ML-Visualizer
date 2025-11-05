@@ -36,25 +36,25 @@ export default function LinearRegression() {
 
     const { m: targetM, b: targetB, error: totalError } = calcRegression(points);
 
-    // current displayed line (animated / controlled)
+    
     const [currentM, setCurrentM] = useState<number>(targetM);
     const [currentB, setCurrentB] = useState<number>(targetB);
 
-    // manual controls override animation
+
     const [manualM, setManualM] = useState<number | null>(null);
     const [manualB, setManualB] = useState<number | null>(null);
 
     const [isAnimating, setIsAnimating] = useState(false);
-    const [animSpeed, setAnimSpeed] = useState(40); // 1..100
+    const [animSpeed, setAnimSpeed] = useState(40); 
     const [showResiduals, setShowResiduals] = useState(true);
 
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const rafRef = useRef<number | null>(null);
 
-    // hover tooltip
+  
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-    // autoscale domain
+   
     const getDomain = useCallback(() => {
         if (points.length === 0) return { xmin: 0, xmax: 10, ymin: 0, ymax: 10 };
         const xs = points.map((p) => p.x);
@@ -63,20 +63,20 @@ export default function LinearRegression() {
         let xmax = Math.max(...xs);
         let ymin = Math.min(...ys);
         let ymax = Math.max(...ys);
-        // pad
+        
         const xpad = Math.max(1, (xmax - xmin) * 0.15);
         const ypad = Math.max(1, (ymax - ymin) * 0.15);
         xmin = Math.floor(xmin - xpad);
         xmax = Math.ceil(xmax + xpad);
         ymin = Math.floor(ymin - ypad);
         ymax = Math.ceil(ymax + ypad);
-        // if flat, expand
+       
         if (Math.abs(xmax - xmin) < 1e-6) { xmax = xmin + 5; }
         if (Math.abs(ymax - ymin) < 1e-6) { ymax = ymin + 5; }
         return { xmin, xmax, ymin, ymax };
     }, [points]);
 
-    // mapping functions between data and pixels
+    
     function dataToPixel(x: number, y: number, width: number, height: number) {
         const { xmin, xmax, ymin, ymax } = getDomain();
         const px = PADDING + ((x - xmin) / (xmax - xmin)) * (width - 2 * PADDING);
@@ -90,7 +90,7 @@ export default function LinearRegression() {
         return { x, y };
     }
 
-    // draw function
+   
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -107,19 +107,19 @@ export default function LinearRegression() {
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
         ctx.clearRect(0, 0, width, height);
 
-        // background - dynamic based on theme
+      
         ctx.fillStyle = theme === "dark" ? "#1f2937" : "#fff";
         ctx.fillRect(0, 0, width, height);
 
         const { xmin, xmax, ymin, ymax } = getDomain();
 
-        // Calculate nice increments for axis labels
+        
         const xRange = xmax - xmin;
         const yRange = ymax - ymin;
         const xIncrement = Math.pow(10, Math.floor(Math.log10(xRange))) / 2;
         const yIncrement = Math.pow(10, Math.floor(Math.log10(yRange))) / 2;
 
-        // grid - dynamic colors based on theme
+        
         ctx.strokeStyle = theme === "dark" ? "#374151" : "#e6e6e6";
         ctx.lineWidth = 1;
         ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#6b7280";
@@ -127,7 +127,7 @@ export default function LinearRegression() {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        // X-axis grid lines and labels
+      
         for (let x = Math.ceil(xmin / xIncrement) * xIncrement; x <= xmax; x += xIncrement) {
             const { px } = dataToPixel(x, 0, width, height);
             ctx.beginPath();
@@ -135,11 +135,11 @@ export default function LinearRegression() {
             ctx.lineTo(px, height - PADDING);
             ctx.stroke();
 
-            // X-axis label
+            
             ctx.fillText(x.toFixed(1), px, height - PADDING + 15);
         }
 
-        // Y-axis grid lines and labels
+        
         for (let y = Math.ceil(ymin / yIncrement) * yIncrement; y <= ymax; y += yIncrement) {
             const { py } = dataToPixel(0, y, width, height);
             ctx.beginPath();
@@ -147,27 +147,27 @@ export default function LinearRegression() {
             ctx.lineTo(width - PADDING, py);
             ctx.stroke();
 
-            // Y-axis label
+            
             ctx.fillText(y.toFixed(1), PADDING - 15, py);
         }
 
-        // axes - dynamic colors based on theme
+        
         ctx.strokeStyle = theme === "dark" ? "#d1d5db" : "#222";
         ctx.lineWidth = 1.25;
         ctx.beginPath();
-        // x axis
+        
         ctx.moveTo(PADDING, height - PADDING);
         ctx.lineTo(width - PADDING, height - PADDING);
-        // y axis
+      
         ctx.moveTo(PADDING, PADDING);
         ctx.lineTo(PADDING, height - PADDING);
         ctx.stroke();
 
-        // Reset text alignment for other text
+        
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
 
-        // draw residual dashed lines if enabled
+       
         if (showResiduals) {
             points.forEach((p) => {
                 const predictedY = currentM * p.x + currentB;
@@ -184,7 +184,7 @@ export default function LinearRegression() {
             });
         }
 
-        // draw regression line (red) across domain
+       
         {
             const leftData = pixelToData(PADDING, 0, width, height).x;
             const rightData = pixelToData(width - PADDING, 0, width, height).x;
@@ -200,7 +200,7 @@ export default function LinearRegression() {
             ctx.stroke();
         }
 
-        // draw points on top
+        
         points.forEach((p, i) => {
             const { px, py } = dataToPixel(p.x, p.y, width, height);
             ctx.beginPath();
@@ -211,7 +211,7 @@ export default function LinearRegression() {
             ctx.fill();
         });
 
-        // labels: equation & total error top-left - dynamic text colors
+        
         ctx.fillStyle = theme === "dark" ? "#f3f4f6" : "#111827";
         ctx.font = "14px sans-serif";
         ctx.fillText(`y = ${currentM.toFixed(4)} x + ${currentB.toFixed(4)}`, PADDING + 2, 20);
@@ -219,12 +219,12 @@ export default function LinearRegression() {
         ctx.font = "12px sans-serif";
         ctx.fillText(`Total Error (Sum of Squared Residuals): ${totalError.toFixed(4)}`, PADDING + 2, 38);
 
-        // --- MODIFIED --- Draw tooltip on canvas if hovering
+      
         if (hoverIdx !== null) {
             const p = points[hoverIdx];
             const { px, py } = dataToPixel(p.x, p.y, width, height);
 
-            // Tooltip text
+           
             const line1 = `Regression Line: ${(currentM * p.x + currentB).toFixed(4)}`;
             const lines = points.map((pt, i) => {
                 const residual = pt.y - (currentM * pt.x + currentB);
@@ -232,21 +232,21 @@ export default function LinearRegression() {
             });
             const allLines = [line1, ...lines];
 
-            // Calculate box size
+          
             ctx.font = "12px sans-serif";
             const textWidth = Math.max(...allLines.map(line => ctx.measureText(line).width));
             const boxWidth = textWidth + 20;
             const boxHeight = allLines.length * 18 + 10;
 
-            // Position box intelligently: try right, then left
+           
             let boxX = px + 15;
             let boxY = py - boxHeight / 2;
 
-            // If box goes off-screen right, move it to the left
+            
             if (boxX + boxWidth > width - PADDING) {
                 boxX = px - boxWidth - 15;
             }
-            // If box goes off-screen top/bottom (less likely), adjust
+            
             if (boxY < PADDING) {
                 boxY = PADDING;
             }
@@ -254,7 +254,7 @@ export default function LinearRegression() {
                 boxY = height - PADDING - boxHeight;
             }
 
-            // Draw box - dynamic based on theme
+          
             ctx.fillStyle = theme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)";
             ctx.strokeStyle = theme === "dark" ? "#6b7280" : "#999";
             ctx.lineWidth = 1;
@@ -263,7 +263,7 @@ export default function LinearRegression() {
             ctx.fill();
             ctx.stroke();
 
-            // Draw text - dynamic colors based on theme
+            
             ctx.fillStyle = theme === "dark" ? "#ef4444" : "red";
             ctx.fillText(allLines[0], boxX + 10, boxY + 18);
 
@@ -274,7 +274,7 @@ export default function LinearRegression() {
         }
     }, [points, currentM, currentB, getDomain, hoverIdx, showResiduals, totalError, theme]);
 
-    // initial set current line to computed line
+ 
     useEffect(() => {
         if (!manualM && !manualB) {
             setCurrentM(targetM);
@@ -282,9 +282,8 @@ export default function LinearRegression() {
         }
     }, [targetM, targetB, manualM, manualB]);
 
-    // =================================================================
-    // --- THIS IS THE UPDATED "SPIRAL" ANIMATION LOGIC ---
-    // =================================================================
+    
+
     useEffect(() => {
         if (!isAnimating) return;
 
@@ -299,29 +298,25 @@ export default function LinearRegression() {
             const elapsed = t - startTime;
             const norm = Math.min(1, elapsed / duration);
 
-            // Ease in-out cubic (same as before)
+           
             const ease = norm < 0.5 ? 4 * norm * norm * norm : 1 - Math.pow(-2 * norm + 2, 3) / 2;
 
-            // 1. Smooth base movement (same as before)
+            
             const baseM = startM + deltaM * ease;
             const baseB = startB + deltaB * ease;
 
-            // 2. Calculate the shrinking "radius" of the spiral
-            // This goes from 1 (start) down to 0 (end)
+          
             const spiralRadius = 1 - ease;
 
-            // 3. Define the angle for the spiral
-            // This spins the line around
-            const angle = elapsed / 80; // You can change 80 to make it spin faster or slower
+            
+            const angle = elapsed / 80; 
 
-            // 4. Calculate the "shape" - an elliptical spiral
-            // 'm' (slope) moves with Cosine 
-            // 'b' (intercept) moves with Sine
-            // This is the "x, y combined" motion.
-            const spiralM = Math.cos(angle) * 2.0 * spiralRadius; // 2.0 is the "width" of the spiral
-            const spiralB = Math.sin(angle) * 4.0 * spiralRadius; // 4.0 is the "height" of the spiral
 
-            // 5. Combine the base movement with the spiral
+
+            const spiralM = Math.cos(angle) * 2.0 * spiralRadius;
+            const spiralB = Math.sin(angle) * 4.0 * spiralRadius; 
+
+           
             const newM = baseM + spiralM;
             const newB = baseB + spiralB;
 
@@ -331,7 +326,7 @@ export default function LinearRegression() {
             if (norm < 1) {
                 rafRef.current = requestAnimationFrame(step);
             } else {
-                // settle exactly on target
+                
                 setCurrentM(targetM);
                 setCurrentB(targetB);
                 setIsAnimating(false);
@@ -345,19 +340,16 @@ export default function LinearRegression() {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        
     }, [isAnimating, animSpeed, targetM, targetB]);
-    // =================================================================
-    // --- END OF UPDATED ANIMATION LOGIC ---
-    // =================================================================
+    
 
 
-    // redraw on changes
     useEffect(() => {
         draw();
     }, [draw]);
 
-    // canvas events
+    
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -369,14 +361,14 @@ export default function LinearRegression() {
             const px = e.clientX - r.left;
             const py = e.clientY - r.top;
 
-            // Check if cursor is inside the plotting area
+           
             if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
                 setHoverIdx(null);
                 draw();
                 return;
             }
 
-            // find nearest point
+            
             let nearest: number | null = null;
             let minD = 9999;
             const width = canvas.clientWidth;
@@ -390,10 +382,10 @@ export default function LinearRegression() {
                 }
             });
 
-            // Only update state if hover index changes, to avoid too many re-renders
+            
             setHoverIdx(prevIdx => {
                 if (prevIdx !== nearest) {
-                    draw(); // Trigger draw on change
+                    draw(); 
                 }
                 return nearest;
             });
@@ -404,7 +396,7 @@ export default function LinearRegression() {
             const px = e.clientX - r.left;
             const py = e.clientY - r.top;
 
-            // Only add point if click is inside the plotting area
+            
             if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
                 return;
             }
@@ -412,13 +404,14 @@ export default function LinearRegression() {
             const width = canvas.clientWidth;
             const height = canvas.clientHeight;
             const data = pixelToData(px, py, width, height);
-            // add new point
+           
             setPoints((prev) => [...prev, { x: Number(data.x.toFixed(4)), y: Number(data.y.toFixed(4)) }]);
-            // clear manual overrides when adding point (so animation applies to new regression)
+            
             setManualM(null);
             setManualB(null);
             setTimeout(() => {
-                // small delay to let points update and compute regression
+                
+
                 setIsAnimating(true);
                 setShowResiduals(true);
             }, 50);
@@ -435,20 +428,21 @@ export default function LinearRegression() {
             canvas.removeEventListener("mousemove", onMove);
             canvas.removeEventListener("click", onClick);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [points, currentM, currentB, getDomain, draw]); // Added draw to dependency array
+       
+    }, [points, currentM, currentB, getDomain, draw]); 
 
-    // sliders manual control
+
     useEffect(() => {
         if (manualM !== null) setCurrentM(manualM);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     }, [manualM]);
     useEffect(() => {
         if (manualB !== null) setCurrentB(manualB);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+       
+
     }, [manualB]);
 
-    // UI handlers
+
     const addPointFromInputs = () => {
         const xEl = document.getElementById("inpX") as HTMLInputElement;
         const yEl = document.getElementById("inpY") as HTMLInputElement;
@@ -461,7 +455,8 @@ export default function LinearRegression() {
             setManualB(null);
             setIsAnimating(true);
             setShowResiduals(true);
-            // Clear inputs
+           
+
             xEl.value = "";
             yEl.value = "";
         }
@@ -484,7 +479,7 @@ export default function LinearRegression() {
             </h1>
 
             <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                {/* Left Chart */}
+                
                 <div className={`md:col-span-2 p-4 border rounded-lg ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                     <div className="flex justify-between items-start mb-2">
                         <div>
@@ -506,7 +501,7 @@ export default function LinearRegression() {
                     </div>
                 </div>
 
-                {/* Right sidebar */}
+                
                 <div className="space-y-4 md:col-span-1">
                     <div
                         className={`p-4 border rounded-lg ${theme === "dark"

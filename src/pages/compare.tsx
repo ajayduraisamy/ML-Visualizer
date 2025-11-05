@@ -1,50 +1,153 @@
+import  { useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
-import { useNavigate } from "react-router-dom";
+
 import {
     FaChartLine,
-    FaProjectDiagram,
     FaBrain,
     FaNetworkWired,
+    FaProjectDiagram,
 } from "react-icons/fa";
+import { Chart, registerables } from "chart.js";
+
+Chart.register(...registerables);
 
 export default function Compare() {
     const { theme } = useTheme();
-    const navigate = useNavigate();
+    
 
-    const cards = [
-        {
-            title: "Linear Regression",
-            desc: "Visualize how linear regression works with interactive gradient descent animation. Adjust parameters in real-time.",
-            color: "from-blue-500 to-cyan-500",
-            glow: "blue",
-            icon: <FaChartLine className="text-3xl" />,
-            path: "/linear-regression",
-        },
-        {
-            title: "Decision Boundaries",
-            desc: "See how different classification algorithms create decision boundaries between classes. Create your own datasets.",
-            color: "from-green-500 to-emerald-500",
-            glow: "green",
-            icon: <FaProjectDiagram className="text-3xl" />,
-            path: "/decision-boundaries",
-        },
-        {
-            title: "Neural Networks",
-            desc: "Visualize neural network architecture and see how signals propagate through the network. Customize the architecture.",
-            color: "from-purple-500 to-pink-500",
-            glow: "purple",
-            icon: <FaBrain className="text-3xl" />,
-            path: "/neural-networks",
-        },
-        {
-            title: "CNN Visualizer",
-            desc: "Visualize how CNNs process images for digit recognition. Draw digits and see the network in action.",
-            color: "from-indigo-500 to-blue-500",
-            glow: "indigo",
-            icon: <FaNetworkWired className="text-3xl" />,
-            path: "/cnn-visualizer",
-        },
-    ];
+    const [points, setPoints] = useState<{ x: number; y: number }[]>([
+        { x: 1, y: 1 },
+        { x: 2, y: 2.3 },
+        { x: 3, y: 2.7 },
+        { x: 4, y: 3.8 },
+        { x: 5, y: 5 },
+    ]);
+    const [xInput, setXInput] = useState("");
+    const [yInput, setYInput] = useState("");
+
+    const linearChartRef = useRef<HTMLCanvasElement | null>(null);
+    const nnChartRef = useRef<HTMLCanvasElement | null>(null);
+    const cnnChartRef = useRef<HTMLCanvasElement | null>(null);
+
+    useEffect(() => {
+        const ctx1 = linearChartRef.current?.getContext("2d");
+        const ctx2 = nnChartRef.current?.getContext("2d");
+        const ctx3 = cnnChartRef.current?.getContext("2d");
+
+        if (!ctx1 || !ctx2 || !ctx3) return;
+
+        // 🟩 Linear Regression Chart
+        const xs = points.map((p) => p.x);
+        const ys = points.map((p) => p.y);
+        const n = xs.length;
+        const meanX = xs.reduce((a, b) => a + b) / n;
+        const meanY = ys.reduce((a, b) => a + b) / n;
+        const num = xs.reduce((acc, x, i) => acc + (x - meanX) * (ys[i] - meanY), 0);
+        const den = xs.reduce((acc, x) => acc + (x - meanX) ** 2, 0);
+        const slope = num / den;
+        const intercept = meanY - slope * meanX;
+
+        const regressionY = xs.map((x) => slope * x + intercept);
+
+        const linearChart = new Chart(ctx1, {
+            type: "scatter",
+            data: {
+                datasets: [
+                    {
+                        label: "Data Points",
+                        data: points,
+                        backgroundColor: "#3b82f6",
+                    },
+                    {
+                        label: "Regression Line",
+                        type: "line",
+                        data: xs.map((x, i) => ({ x, y: regressionY[i] })),
+                        borderColor: "#10b981",
+                        fill: false,
+                        tension: 0.3,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                animation: { duration: 0 },
+                scales: {
+                    x: { type: "linear", title: { display: true, text: "X" } },
+                    y: { type: "linear", title: { display: true, text: "Y" } },
+                },
+            },
+        });
+
+        // 🧠 Neural Network Activation Visualization
+        const nnChart = new Chart(ctx2, {
+            type: "line",
+            data: {
+                labels: Array.from({ length: 50 }, (_, i) => i),
+                datasets: [
+                    {
+                        label: "Neuron Activation (sigmoid)",
+                        data: Array.from({ length: 50 }, (_, i) =>
+                            1 / (1 + Math.exp(-(i / 5 - 5)))
+                        ),
+                        borderColor: "#f59e0b",
+                        fill: false,
+                    },
+                ],
+            },
+            options: {
+                animation: { duration: 1000 },
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: "Input Signal" } },
+                    y: { title: { display: true, text: "Activation Output" } },
+                },
+            },
+        });
+
+        // 🧩 CNN Feature Map Visualization (simulated heatmap)
+        const cnnChart = new Chart(ctx3, {
+            type: "bar",
+            data: {
+                labels: ["Edge 1", "Edge 2", "Corner", "Texture", "Pattern"],
+                datasets: [
+                    {
+                        label: "Feature Strength",
+                        data: [0.2, 0.6, 0.8, 0.5, 0.9],
+                        backgroundColor: [
+                            "#3b82f6",
+                            "#60a5fa",
+                            "#10b981",
+                            "#facc15",
+                            "#ef4444",
+                        ],
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                animation: { duration: 800 },
+                scales: {
+                    y: { min: 0, max: 1, title: { display: true, text: "Activation Strength" } },
+                },
+            },
+        });
+
+        return () => {
+            linearChart.destroy();
+            nnChart.destroy();
+            cnnChart.destroy();
+        };
+    }, [points]);
+
+    const addPoint = () => {
+        const x = parseFloat(xInput);
+        const y = parseFloat(yInput);
+        if (!isNaN(x) && !isNaN(y)) {
+            setPoints((prev) => [...prev, { x, y }]);
+            setXInput("");
+            setYInput("");
+        }
+    };
 
     return (
         <div
@@ -53,185 +156,94 @@ export default function Compare() {
                 : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-black"
                 }`}
         >
-            {/* Hero Section */}
-            <section className="text-center px-6">
-                <div className="relative inline-block">
-                    <h1 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6 relative z-10">
-                        Machine Learning Visualizer
-                    </h1>
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-2xl scale-110 rounded-full"></div>
-                </div>
-                <p
-                    className={`text-xl max-w-3xl mx-auto leading-relaxed font-medium ${theme === "dark"
-                        ? "text-white/70 bg-gradient-to-r from-white/5 to-transparent p-6 rounded-2xl border border-white/10"
-                        : "text-black/70 bg-gradient-to-r from-black/5 to-transparent p-6 rounded-2xl border border-black/10"
-                        }`}
-                >
-                    Explore and understand ML concepts through interactive visual demonstrations.
-                    <span className="block text-sm mt-2 opacity-60">
-                        Built for students, educators, and ML enthusiasts
-                    </span>
-                </p>
-            </section>
+            <div className="max-w-7xl mx-auto px-6">
+                <h1 className="text-3xl font-bold mb-6 text-center flex items-center justify-center gap-3">
+                    <FaProjectDiagram className="text-blue-600" />
+                    Model Comparison Dashboard
+                </h1>
 
-            {/* Visualization Cards */}
-            <section className="mt-20 flex flex-wrap justify-center gap-8 px-6">
-                {cards.map((card, idx) => (
-                    <div
-                        key={idx}
-                        className="group relative w-full sm:w-[350px] transition-all duration-500 hover:scale-105 hover:-translate-y-2"
+                {/* Inputs */}
+                <div className="flex flex-wrap justify-center gap-3 mb-6">
+                    <input
+                        type="number"
+                        placeholder="X value"
+                        value={xInput}
+                        onChange={(e) => setXInput(e.target.value)}
+                        className="border rounded-md px-3 py-2"
+                    />
+                    <input
+                        type="number"
+                        placeholder="Y value"
+                        value={yInput}
+                        onChange={(e) => setYInput(e.target.value)}
+                        className="border rounded-md px-3 py-2"
+                    />
+                    <button
+                        onClick={addPoint}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md"
                     >
-                        {/* Glow */}
-                        <div
-                            className={`absolute inset-0 bg-gradient-to-br ${card.color} rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
-                        ></div>
+                        Add Point
+                    </button>
+                </div>
 
-                        {/* Card */}
-                        <div
-                            className={`relative bg-gradient-to-br ${card.color} p-[2px] rounded-2xl shadow-2xl ${theme === "dark"
-                                ? `shadow-${card.glow}-500/10 hover:shadow-${card.glow}-500/30`
-                                : `shadow-${card.glow}-500/20 hover:shadow-${card.glow}-500/40`
-                                } transition-all duration-500`}
-                        >
-                            <div
-                                className={`rounded-2xl p-8 min-h-[380px] flex flex-col justify-between backdrop-blur-sm ${theme === "dark"
-                                    ? "bg-gray-900/80 border border-gray-700/50"
-                                    : "bg-white/80 border border-white/50"
-                                    }`}
-                            >
-                                <div>
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <span>{card.icon}</span>
-                                        <h3
-                                            className={`text-2xl font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}
-                                        >
-                                            {card.title}
-                                        </h3>
-                                    </div>
-                                    <p
-                                        className={`text-base leading-relaxed ${theme === "dark" ? "text-white/70" : "text-black/70"
-                                            }`}
-                                    >
-                                        {card.desc}
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={() => navigate(card.path)}
-                                    className={`mt-6 group relative overflow-hidden bg-gradient-to-r ${card.color} text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg w-fit self-center`}
-                                >
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        Explore
-                                        <span className="transition-transform duration-300 group-hover:translate-x-1">
-                                            →
-                                        </span>
-                                    </span>
-                                    <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </section>
-
-            {/* How to Use Section */}
-            <section className="mt-28 px-6">
-                <div className="text-center mb-12">
-                    <h2
-                        className={`text-4xl font-black mb-4 ${theme === "dark" ? "text-white" : "text-black"
+                {/* Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div
+                        className={`rounded-xl shadow-lg p-4 border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                             }`}
                     >
-                        How to Use This Tool
-                    </h2>
-                    <div className="w-24 h-1 mx-auto rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
-                </div>
-
-                <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
-                    {/* For Students */}
-                    <div className="group relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
-                        <div
-                            className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
-                                ? "bg-gray-900/60 border-blue-500/30"
-                                : "bg-white/60 border-blue-400/30"
-                                } transition-all duration-500 group-hover:border-blue-500/50`}
-                        >
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-                                    <span className="text-2xl">🎓</span>
-                                </div>
-                                <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
-                                    For Students
-                                </h3>
-                            </div>
-                            <ul
-                                className={`space-y-4 ${theme === "dark" ? "text-white/80" : "text-black/80"
-                                    }`}
-                            >
-                                {[
-                                    "Explore visualizations to reinforce concepts with interactive playgrounds",
-                                    "Adjust parameters in real-time to see immediate effects on models",
-                                    "Test understanding with built-in challenges and quizzes",
-                                ].map((item, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-start gap-4 p-3 rounded-lg bg-gradient-to-r from-transparent to-blue-500/5"
-                                    >
-                                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mt-0.5">
-                                            <span className="text-white text-xs font-bold">
-                                                {i + 1}
-                                            </span>
-                                        </div>
-                                        <span className="text-lg leading-relaxed">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                        <h2 className="text-xl font-semibold flex items-center gap-2 mb-2">
+                            <FaChartLine className="text-blue-500" /> Linear Regression
+                        </h2>
+                        <canvas ref={linearChartRef} height={200}></canvas>
                     </div>
 
-                    {/* For Educators */}
-                    <div className="group relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
-                        <div
-                            className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
-                                ? "bg-gray-900/60 border-purple-500/30"
-                                : "bg-white/60 border-purple-400/30"
-                                } transition-all duration-500 group-hover:border-purple-500/50`}
-                        >
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-                                    <span className="text-2xl">👨‍🏫</span>
-                                </div>
-                                <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-                                    For Educators
-                                </h3>
-                            </div>
-                            <ul
-                                className={`space-y-4 ${theme === "dark" ? "text-white/80" : "text-black/80"
-                                    }`}
-                            >
-                                {[
-                                    "Use visualizations in class demos with full-screen presentation mode",
-                                    "Show complex concepts interactively with step-by-step explanations",
-                                    "Guide students through examples with integrated annotation tools",
-                                ].map((item, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-start gap-4 p-3 rounded-lg bg-gradient-to-r from-transparent to-purple-500/5"
-                                    >
-                                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mt-0.5">
-                                            <span className="text-white text-xs font-bold">
-                                                {i + 1}
-                                            </span>
-                                        </div>
-                                        <span className="text-lg leading-relaxed">{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                    <div
+                        className={`rounded-xl shadow-lg p-4 border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                            }`}
+                    >
+                        <h2 className="text-xl font-semibold flex items-center gap-2 mb-2">
+                            <FaBrain className="text-yellow-500" /> Neural Network
+                        </h2>
+                        <canvas ref={nnChartRef} height={200}></canvas>
+                    </div>
+
+                    <div
+                        className={`rounded-xl shadow-lg p-4 border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                            }`}
+                    >
+                        <h2 className="text-xl font-semibold flex items-center gap-2 mb-2">
+                            <FaNetworkWired className="text-green-500" /> CNN Feature Map
+                        </h2>
+                        <canvas ref={cnnChartRef} height={200}></canvas>
                     </div>
                 </div>
-            </section>
+
+                {/* Explanations */}
+                <div className="grid md:grid-cols-3 gap-6">
+                    <div className={`rounded-xl p-5 ${theme === "dark" ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"}`}>
+                        <h3 className="text-lg font-semibold text-blue-500 mb-2">Linear Regression</h3>
+                        <p className="text-sm">
+                            Finds the best-fit line (Y = mX + b) to predict continuous outputs.
+                            Each update adjusts the slope (m) and intercept (b) to minimize error.
+                        </p>
+                    </div>
+                    <div className={`rounded-xl p-5 ${theme === "dark" ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"}`}>
+                        <h3 className="text-lg font-semibold text-yellow-500 mb-2">Neural Network</h3>
+                        <p className="text-sm">
+                            Processes inputs through connected neurons using weights and activation functions.
+                            Each neuron learns to detect patterns and relationships in data.
+                        </p>
+                    </div>
+                    <div className={`rounded-xl p-5 ${theme === "dark" ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"}`}>
+                        <h3 className="text-lg font-semibold text-green-500 mb-2">Convolutional Neural Network</h3>
+                        <p className="text-sm">
+                            Uses convolution filters to detect edges, textures, and features in images.
+                            Feature maps visualize what patterns the CNN has learned.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

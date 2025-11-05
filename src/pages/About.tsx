@@ -42,9 +42,9 @@ const About: React.FC = () => {
                     </p>
                 </section>
 
-                {/* Overview Cards */}
+            
                 <section className="grid lg:grid-cols-2 gap-8">
-                    {/* Project Overview Card */}
+                  
                     <div className="group relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                         <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -70,7 +70,7 @@ const About: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Educational Benefits Card */}
+                   
                     <div className="group relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                         <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -106,7 +106,7 @@ const About: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Available Visualizations */}
+               
                 <section className="space-y-12">
                     <div className="text-center">
                         <h2 className="text-4xl font-black bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent mb-4">
@@ -116,7 +116,7 @@ const About: React.FC = () => {
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-8">
-                        {/* Linear Regression */}
+                       
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                             <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -152,7 +152,7 @@ const About: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Decision Boundaries */}
+                        
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                             <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -188,7 +188,7 @@ const About: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Neural Networks */}
+                       
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                             <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -224,7 +224,7 @@ const About: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* CNNs */}
+                        
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-blue-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                             <div className={`relative p-8 rounded-2xl border-2 backdrop-blur-sm ${theme === "dark"
@@ -262,7 +262,7 @@ const About: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Technical Implementation */}
+              
                 <section className="group relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-pink-500/20 rounded-3xl blur-2xl opacity-20 group-hover:opacity-30 transition-opacity duration-500"></div>
                     <div className={`relative p-12 rounded-3xl border-2 backdrop-blur-sm ${theme === "dark"

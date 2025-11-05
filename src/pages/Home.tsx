@@ -53,7 +53,7 @@ export default function Home() {
                     : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-black"
                 }`}
         >
-            {/* Hero Section */}
+           
             <section className="text-center px-6">
                 <div className="relative inline-block">
                     <h1 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6 relative z-10">
@@ -74,19 +74,19 @@ export default function Home() {
                 </p>
             </section>
 
-            {/* Visualization Cards */}
+           
             <section className="mt-20 flex flex-wrap justify-center gap-8 px-6">
                 {cards.map((card, idx) => (
                     <div
                         key={idx}
                         className="group relative w-full sm:w-[350px] transition-all duration-500 hover:scale-105 hover:-translate-y-2"
                     >
-                        {/* Glow */}
+                        
                         <div
                             className={`absolute inset-0 bg-gradient-to-br ${card.color} rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500`}
                         ></div>
 
-                        {/* Card */}
+                        
                         <div
                             className={`relative bg-gradient-to-br ${card.color} p-[2px] rounded-2xl shadow-2xl ${theme === "dark"
                                     ? `shadow-${card.glow}-500/10 hover:shadow-${card.glow}-500/30`
@@ -134,7 +134,7 @@ export default function Home() {
                 ))}
             </section>
 
-            {/* How to Use Section */}
+          
             <section className="mt-28 px-6">
                 <div className="text-center mb-12">
                     <h2
@@ -147,7 +147,7 @@ export default function Home() {
                 </div>
 
                 <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
-                    {/* For Students */}
+                    
                     <div className="group relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                         <div
@@ -189,7 +189,7 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* For Educators */}
+                    
                     <div className="group relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
                         <div

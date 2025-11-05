@@ -39,10 +39,11 @@ export default function Navbar() {
         >
             <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
                 <div className="text-2xl font-extrabold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent tracking-wide select-none">
-                    ML Visualiser
+                    ML Visualizer
+
                 </div>
 
-                {/* Desktop Navigation */}
+               
                 <nav className="hidden md:flex gap-6 text-[15px] font-medium">
                     {links.map((link) => {
                         const isActive = loc.pathname === link.path;
@@ -67,7 +68,7 @@ export default function Navbar() {
                 </nav>
 
                 <div className="flex items-center gap-4">
-                    {/* Theme Toggle */}
+                    
                     <button
                         onClick={toggle}
                         className="p-2 rounded-full border border-blue-400 hover:scale-110 transition-transform duration-200 bg-white/70 dark:bg-black/70 backdrop-blur flex items-center justify-center shadow-md"
@@ -79,7 +80,7 @@ export default function Navbar() {
                         )}
                     </button>
 
-                    {/* Mobile Menu Button */}
+                    
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         className="md:hidden p-2 rounded-lg border border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -89,7 +90,7 @@ export default function Navbar() {
                 </div>
             </div>
 
-            {/* Mobile Navigation */}
+            
             {isMenuOpen && (
                 <div className="md:hidden border-t border-blue-500/20">
                     <nav className="px-6 py-4 flex flex-col gap-4">

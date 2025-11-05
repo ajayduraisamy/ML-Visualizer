@@ -4,13 +4,13 @@ import { useTheme } from "../context/ThemeContext";
 type Label = "A" | "B";
 type Point = { x: number; y: number; label: Label };
 
-const GRID_COLS = 60;
-const GRID_ROWS = 40;
+const GRID_COLS = 80;
+const GRID_ROWS = 60;
 const PADDING = 40;
 
 // Helper component for blue formula boxes
 const FormulaBox = ({ children }: { children: React.ReactNode }) => (
-    <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 my-2 text-sm overflow-x-auto">
+    <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 my-2 text-sm overflow-x-auto dark:bg-gray-700 dark:border-gray-600 dark:text-blue-200">
         <code className="whitespace-pre-wrap">{children}</code>
     </div>
 );
@@ -43,14 +43,16 @@ export default function DecisionBoundariesPage() {
     const [svmW1, setSvmW1] = useState<number>(1.0);
     const [svmW2, setSvmW2] = useState<number>(1.0);
     const [svmB, setSvmB] = useState<number>(-2.0);
+    // 6 weights for [bias, x, y, x², xy, y²]
     const [logW, setLogW] = useState<number[]>(Array.from({ length: 6 }, (_, i) => (i === 0 ? -2.0 : 0.5)));
-    const [polyDegree, setPolyDegree] = useState<number>(2);
     const [formX, setFormX] = useState<string>("");
     const [formY, setFormY] = useState<string>("");
     const [formLabel, setFormLabel] = useState<Label>("A");
     const [hoverCoords, setHoverCoords] = useState<{ x: number, y: number } | null>(null);
+    const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const animationRef = useRef<number | null>(null);
 
     const getDomain = useCallback(() => {
         if (points.length === 0) return { xMin: 0, xMax: 10, yMin: 0, yMax: 10 };
@@ -101,16 +103,33 @@ export default function DecisionBoundariesPage() {
                 const distances = points
                     .map((p) => ({ p, d: dist({ x: gx, y: gy }, p) }))
                     .sort((a, b) => a.d - b.d);
-                const k = Math.max(1, Math.min(points.length, Math.round(kValue)));
-                const votes = { A: 0, B: 0 };
-                for (let i = 0; i < k; i++) {
-                    votes[distances[i].p.label]++;
+
+                // Handle fractional k during animation
+                const kFractional = Math.max(1, Math.min(points.length, kValue));
+                const kFloor = Math.floor(kFractional);
+                const kCeil = Math.ceil(kFractional);
+                const weight = kFractional - kFloor;
+
+                const votesFloor = { A: 0, B: 0 };
+                const votesCeil = { A: 0, B: 0 };
+
+                for (let i = 0; i < kFloor; i++) {
+                    votesFloor[distances[i].p.label]++;
                 }
-                return votes.A >= votes.B ? "A" : "B";
+                for (let i = 0; i < kCeil; i++) {
+                    votesCeil[distances[i].p.label]++;
+                }
+
+                // Interpolate between floor and ceil k values
+                const aVotes = votesFloor.A * (1 - weight) + votesCeil.A * weight;
+                const bVotes = votesFloor.B * (1 - weight) + votesCeil.B * weight;
+
+                return aVotes >= bVotes ? "A" : "B";
             } else if (algorithm === "SVM") {
                 const f = svmW1 * gx + svmW2 * gy + svmB;
                 return f >= 0 ? "A" : "B";
             } else {
+                // Logistic Regression (Degree 2)
                 const features = [1, gx, gy, gx * gx, gx * gy, gy * gy];
                 let z = 0;
                 for (let i = 0; i < logW.length; i++) {
@@ -198,10 +217,11 @@ export default function DecisionBoundariesPage() {
 
         // Class labels with theme
         ctx.font = "13px Inter";
+        ctx.textAlign = "center"; // Centered legend text
         ctx.fillStyle = "#2563eb";
-        ctx.fillText("Class A Points", PADDING + 40, PADDING + plotH + 32);
+        ctx.fillText("Class A Points", PADDING + 60, PADDING + plotH + 32);
         ctx.fillStyle = "#10b981";
-        ctx.fillText("Class B Points", PADDING + 160, PADDING + plotH + 32);
+        ctx.fillText("Class B Points", PADDING + 180, PADDING + plotH + 32);
 
         // Display hover coordinates
         if (hoverCoords) {
@@ -212,8 +232,8 @@ export default function DecisionBoundariesPage() {
         }
 
         // Decision boundary contour for logistic / svm
-        if (algorithm === "Logistic" || algorithm === "SVM") {
-            ctx.strokeStyle = "#0ea5e9";
+        if (algorithm === "Logistic") {
+            ctx.strokeStyle = "#0ea5e9"; // Blue for Logistic
             ctx.lineWidth = 1.8;
             for (let r = 0; r < GRID_ROWS; r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
@@ -223,12 +243,36 @@ export default function DecisionBoundariesPage() {
                     let z = 0;
                     for (let i = 0; i < logW.length; i++) z += (logW[i] || 0) * features[i];
                     const p = sigmoid(z);
+
+                    // Draw contour where probability is 0.5
                     if (Math.abs(p - 0.5) < 0.05) {
                         const px = PADDING + (c / (GRID_COLS - 1)) * plotW;
                         const py = PADDING + (r / (GRID_ROWS - 1)) * plotH;
                         ctx.beginPath();
                         ctx.arc(px, py, 2.5, 0, Math.PI * 2);
                         ctx.fillStyle = "#0ea5e9";
+                        ctx.fill();
+                    }
+                }
+            }
+        } else if (algorithm === "SVM") {
+            ctx.strokeStyle = "#e11d48"; // Red for SVM
+            ctx.lineWidth = 1.8;
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const gx = xMin + (c / (GRID_COLS - 1)) * (xMax - xMin);
+                    const gy = yMax - (r / (GRID_ROWS - 1)) * (yMax - yMin);
+
+                    // Use the SVM decision function
+                    const f = svmW1 * gx + svmW2 * gy + svmB;
+
+                    // Draw contour where f is 0
+                    if (Math.abs(f) < 0.08) { // Use a small threshold
+                        const px = PADDING + (c / (GRID_COLS - 1)) * plotW;
+                        const py = PADDING + (r / (GRID_ROWS - 1)) * plotH;
+                        ctx.beginPath();
+                        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                        ctx.fillStyle = "#e11d48";
                         ctx.fill();
                     }
                 }
@@ -290,69 +334,109 @@ export default function DecisionBoundariesPage() {
         setPoints([]);
     };
 
+    // FIXED: Improved animation with smoother transitions
     const animateBoundary = () => {
-        const duration = 1000;
+        if (isAnimating) return;
+
+        setIsAnimating(true);
+        const duration = 2000;
         let startTime: number | null = null;
 
+        // Store initial values
         const initialK = kValue;
         const initialSvmW1 = svmW1;
         const initialSvmW2 = svmW2;
         const initialSvmB = svmB;
         const initialLogW = [...logW];
 
+        // Calculate target values based on current data
+        let targetK = initialK;
+        let targetSvmW1 = initialSvmW1;
+        let targetSvmW2 = initialSvmW2;
+        let targetSvmB = initialSvmB;
+        let targetLogW = [...initialLogW];
+
+        // Calculate targets based on data distribution
+        const aPts = points.filter((p) => p.label === "A");
+        const bPts = points.filter((p) => p.label === "B");
+
+        if (aPts.length && bPts.length) {
+            const aCx = aPts.reduce((s, p) => s + p.x, 0) / aPts.length;
+            const aCy = aPts.reduce((s, p) => s + p.y, 0) / aPts.length;
+            const bCx = bPts.reduce((s, p) => s + p.x, 0) / bPts.length;
+            const bCy = bPts.reduce((s, p) => s + p.y, 0) / bPts.length;
+
+            // For KNN: use fractional k for smoother animation
+            targetK = Math.max(1, Math.min(15, Math.sqrt(points.length) || 3));
+
+            // For SVM: target weights pointing from class B to class A
+            targetSvmW1 = aCx - bCx;
+            targetSvmW2 = aCy - bCy;
+            targetSvmB = -((targetSvmW1 * (aCx + bCx) / 2) + (targetSvmW2 * (aCy + bCy) / 2));
+
+            // Normalize SVM weights for better visualization
+            const svmNorm = Math.sqrt(targetSvmW1 * targetSvmW1 + targetSvmW2 * targetSvmW2) || 1;
+            targetSvmW1 /= svmNorm * 0.5;
+            targetSvmW2 /= svmNorm * 0.5;
+
+            // For Logistic: more reasonable weights
+            targetLogW = [
+                -2.5, // bias
+                targetSvmW1 * 0.8, // x coefficient
+                targetSvmW2 * 0.8, // y coefficient
+                0.3, // x² coefficient
+                0.1, // xy coefficient  
+                0.3 // y² coefficient
+            ];
+        }
+
         const animate = (timestamp: number) => {
             if (!startTime) startTime = timestamp;
             const progress = Math.min((timestamp - startTime) / duration, 1);
-            const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+            // Smoother easing function
+            const easeProgress = progress < 0.5
+                ? 2 * progress * progress
+                : -1 + (4 - 2 * progress) * progress;
 
             if (algorithm === "KNN") {
-                const target = Math.max(1, Math.min(9, Math.round(points.length / 2) || 3));
-                const newK = Math.round(initialK + (target - initialK) * easeProgress);
-                setKValue(newK);
+                // FIXED: Use fractional k during animation for smoother transitions
+                const newK = initialK + (targetK - initialK) * easeProgress;
+                setKValue(newK); // Keep as float during animation
             } else if (algorithm === "SVM") {
-                const aPts = points.filter((p) => p.label === "A");
-                const bPts = points.filter((p) => p.label === "B");
-                if (aPts.length && bPts.length) {
-                    const aCx = aPts.reduce((s, p) => s + p.x, 0) / aPts.length;
-                    const aCy = aPts.reduce((s, p) => s + p.y, 0) / aPts.length;
-                    const bCx = bPts.reduce((s, p) => s + p.x, 0) / bPts.length;
-                    const bCy = bPts.reduce((s, p) => s + p.y, 0) / bPts.length;
-
-                    const targetW1 = aCx - bCx;
-                    const targetW2 = aCy - bCy;
-                    const targetB = -((targetW1 * (aCx + bCx) / 2) + (targetW2 * (aCy + bCy) / 2));
-
-                    setSvmW1(initialSvmW1 + (targetW1 - initialSvmW1) * easeProgress);
-                    setSvmW2(initialSvmW2 + (targetW2 - initialSvmW2) * easeProgress);
-                    setSvmB(initialSvmB + (targetB - initialSvmB) * easeProgress);
-                }
+                setSvmW1(initialSvmW1 + (targetSvmW1 - initialSvmW1) * easeProgress);
+                setSvmW2(initialSvmW2 + (targetSvmW2 - initialSvmW2) * easeProgress);
+                setSvmB(initialSvmB + (targetSvmB - initialSvmB) * easeProgress);
             } else if (algorithm === "Logistic") {
-                const aPts = points.filter((p) => p.label === "A");
-                const bPts = points.filter((p) => p.label === "B");
-                if (aPts.length && bPts.length) {
-                    const aCx = aPts.reduce((s, p) => s + p.x, 0) / aPts.length;
-                    const aCy = aPts.reduce((s, p) => s + p.y, 0) / aPts.length;
-                    const bCx = bPts.reduce((s, p) => s + p.x, 0) / bPts.length;
-                    const bCy = bPts.reduce((s, p) => s + p.y, 0) / bPts.length;
-
-                    const newWeights = [...initialLogW];
-                    newWeights[0] = initialLogW[0] + (-3 - initialLogW[0]) * easeProgress;
-                    newWeights[1] = initialLogW[1] + ((aCx - bCx) - initialLogW[1]) * easeProgress;
-                    newWeights[2] = initialLogW[2] + ((aCy - bCy) - initialLogW[2]) * easeProgress;
-                    newWeights[3] = initialLogW[3] + (0.3 * (aCx - bCx) - initialLogW[3]) * easeProgress;
-                    newWeights[4] = initialLogW[4] + (0.1 * (aCx - bCx + aCy - bCy) - initialLogW[4]) * easeProgress;
-                    newWeights[5] = initialLogW[5] + (0.3 * (aCy - bCy) - initialLogW[5]) * easeProgress;
-                    setLogW(newWeights);
-                }
+                const newWeights = initialLogW.map((initial, i) =>
+                    initial + (targetLogW[i] - initial) * easeProgress
+                );
+                setLogW(newWeights);
             }
 
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                animationRef.current = requestAnimationFrame(animate);
+            } else {
+                // Final cleanup - round K value for KNN
+                if (algorithm === "KNN") {
+                    setKValue(Math.round(targetK));
+                }
+                setIsAnimating(false);
+                animationRef.current = null;
             }
         };
 
-        requestAnimationFrame(animate);
+        animationRef.current = requestAnimationFrame(animate);
     };
+
+    // Clean up animation on unmount
+    useEffect(() => {
+        return () => {
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+            }
+        };
+    }, []);
 
     const setLogWAt = (i: number, value: number) => {
         setLogW((prev) => prev.map((v, idx) => (idx === i ? value : v)));
@@ -361,32 +445,27 @@ export default function DecisionBoundariesPage() {
     return (
         <div
             className={`p-6 max-w-[1200px] mx-auto min-h-screen ${theme === "dark"
-                    ? "bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white"
-                    : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-black"
+                ? "bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white"
+                : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-black"
                 }`}
         >
-            <header className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold">Decision Boundary Visualizer</h1>
-                <nav className="flex gap-4 text-sm">
-                    <span className={theme === "dark" ? "text-gray-400" : "text-gray-500"}>
-                        ML Visualizer
-                    </span>
-                </nav>
+            <header className="text-center mb-6 mt-14">
+                <h1 className="text-2xl font-semibold text-center">Decision Boundary Visualizer</h1>
             </header>
 
             <div className="grid grid-cols-12 gap-6">
                 {/* LEFT COLUMN - PARAMETERS */}
                 <div className={`col-span-12 md:col-span-4 border rounded-lg p-5 shadow-sm ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                     }`}>
-                    <h2 className="font-medium mb-3">Algorithm Parameters</h2>
+                    <h2 className="font-bold mb-3">Algorithm Parameters</h2>
 
                     <label className="text-sm block mb-2">Algorithm:</label>
                     <select
                         value={algorithm}
                         onChange={(e) => setAlgorithm(e.target.value as any)}
                         className={`w-full mb-4 p-2 border rounded ${theme === "dark"
-                                ? "bg-gray-700 border-gray-600 text-white"
-                                : "bg-white border-gray-300"
+                            ? "bg-gray-700 border-gray-600 text-white"
+                            : "bg-white border-gray-300"
                             }`}
                     >
                         <option value="Logistic">Logistic Regression (Polynomial)</option>
@@ -396,15 +475,21 @@ export default function DecisionBoundariesPage() {
 
                     {algorithm === "KNN" && (
                         <>
-                            <label className="text-sm">K value: {kValue}</label>
+                            <label className="text-sm">
+                                K value: {isAnimating ? kValue.toFixed(2) : Math.round(kValue)}
+                            </label>
                             <input
                                 type="range"
                                 min={1}
                                 max={15}
+                                step={0.1}
                                 value={kValue}
                                 onChange={(e) => setKValue(Number(e.target.value))}
                                 className="w-full mt-3"
                             />
+                            <div className={`text-xs mt-1 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                                Higher K = smoother boundary, Lower K = more complex boundary
+                            </div>
                         </>
                     )}
 
@@ -445,20 +530,13 @@ export default function DecisionBoundariesPage() {
 
                     {algorithm === "Logistic" && (
                         <>
-                            <label className="text-sm">Polynomial Degree: {polyDegree}</label>
-                            <input
-                                type="range"
-                                min={1}
-                                max={2}
-                                step={1}
-                                value={polyDegree}
-                                onChange={(e) => setPolyDegree(Number(e.target.value))}
-                                className="w-full mt-3 mb-3"
-                                disabled
-                            />
-                            <div className={`text-sm mb-2 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            <div className={`text-sm mb-2 font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"
                                 }`}>
-                                Weights (bias, x, y, x², xy, y²)
+                                Polynomial Degree 2 Weights
+                            </div>
+                            <div className={`text-xs mb-2 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                }`}>
+                                (bias, x, y, x², xy, y²)
                             </div>
                             <div className="space-y-2">
                                 {logW.map((w, i) => (
@@ -483,10 +561,20 @@ export default function DecisionBoundariesPage() {
 
                     <button
                         onClick={animateBoundary}
-                        className="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded shadow transition-colors"
+                        disabled={isAnimating}
+                        className={`mt-5 w-full py-2 rounded shadow transition-colors ${isAnimating
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                            }`}
                     >
-                        Animate Boundary
+                        {isAnimating ? "Animating..." : "Animate Boundary"}
                     </button>
+
+                    {isAnimating && (
+                        <div className="mt-3 text-sm text-blue-600 text-center">
+                            Adjusting {algorithm} parameters to fit the data...
+                        </div>
+                    )}
                 </div>
 
                 {/* RIGHT COLUMN - CHART */}
@@ -499,10 +587,70 @@ export default function DecisionBoundariesPage() {
                         onMouseLeave={handleCanvasMouseLeave}
                         className="w-full h-[400px] cursor-crosshair"
                     />
+                    {hoverCoords && (
+                        <div className={`text-sm mt-3 text-center ${theme === "dark" ? "text-gray-300" : "text-gray-600"
+                            }`}>
+                            Hover: ({hoverCoords.x.toFixed(2)}, {hoverCoords.y.toFixed(2)})
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="mt-6 space-y-6">
+            {/* ================================================================= */}
+            {/* NEW "ADD POINT" FORM SECTION - MOVED HERE TO MATCH SCREENSHOT */}
+            {/* ================================================================= */}
+            <div className={`border rounded-lg p-5 shadow-sm my-6 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                }`}>
+                <div className="flex flex-wrap gap-3 items-center">
+                    <input
+                        placeholder="X value"
+                        value={formX}
+                        onChange={(e) => setFormX(e.target.value)}
+                        className={`p-2 border rounded w-full md:w-40 ${theme === "dark"
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                            : "bg-white border-gray-300"
+                            }`}
+                    />
+                    <input
+                        placeholder="Y value"
+                        value={formY}
+                        onChange={(e) => setFormY(e.target.value)}
+                        className={`p-2 border rounded w-full md:w-40 ${theme === "dark"
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                            : "bg-white border-gray-300"
+                            }`}
+                    />
+                    <select
+                        className={`p-2 border rounded ${theme === "dark"
+                            ? "bg-gray-700 border-gray-600 text-white"
+                            : "bg-white border-gray-300"
+                            }`}
+                        value={formLabel}
+                        onChange={(e) => setFormLabel(e.target.value as Label)}
+                    >
+                        <option value="A">Class A</option>
+                        <option value="B">Class B</option>
+                    </select>
+
+                    <button
+                        onClick={addFromForm}
+                        className="ml-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+                    >
+                        Add Point
+                    </button>
+                    <button
+                        onClick={clearData}
+                        className="ml-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
+                    >
+                        Clear Data
+                    </button>
+                </div>
+            </div>
+
+            {/* ================================================================= */}
+            {/* All cards below */}
+            {/* ================================================================= */}
+            <div className="space-y-6"> {/* Removed mt-6, now handled by form margin */}
                 {/* HOW IT WORKS */}
                 <div className={`border rounded-lg p-5 shadow-sm ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                     }`}>
@@ -515,57 +663,14 @@ export default function DecisionBoundariesPage() {
                     </ol>
                 </div>
 
-                {/* DATA POINTS */}
+                {/* DATA POINTS - NOW ONLY CONTAINS THE TABLE */}
                 <div className={`border rounded-lg p-5 shadow-sm ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                     }`}>
                     <h3 className="font-semibold mb-3">Data Points</h3>
 
-                    <div className="flex flex-wrap gap-3 items-center mb-4 pb-4 border-b border-gray-200">
-                        <input
-                            placeholder="X value"
-                            value={formX}
-                            onChange={(e) => setFormX(e.target.value)}
-                            className={`p-2 border rounded w-full md:w-40 ${theme === "dark"
-                                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                                    : "bg-white border-gray-300"
-                                }`}
-                        />
-                        <input
-                            placeholder="Y value"
-                            value={formY}
-                            onChange={(e) => setFormY(e.target.value)}
-                            className={`p-2 border rounded w-full md:w-40 ${theme === "dark"
-                                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                                    : "bg-white border-gray-300"
-                                }`}
-                        />
-                        <select
-                            className={`p-2 border rounded ${theme === "dark"
-                                    ? "bg-gray-700 border-gray-600 text-white"
-                                    : "bg-white border-gray-300"
-                                }`}
-                            value={formLabel}
-                            onChange={(e) => setFormLabel(e.target.value as Label)}
-                        >
-                            <option value="A">Class A</option>
-                            <option value="B">Class B</option>
-                        </select>
+                    {/* The form was removed from here */}
 
-                        <button
-                            onClick={addFromForm}
-                            className="ml-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
-                        >
-                            Add Point
-                        </button>
-                        <button
-                            onClick={clearData}
-                            className="ml-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
-                        >
-                            Clear Data
-                        </button>
-                    </div>
-
-                    <div className="overflow-x-auto max-h-60 border rounded">
+                    <div className="overflow-x-auto max-h-60 border rounded dark:border-gray-600">
                         <table className="w-full text-left">
                             <thead className={`sticky top-0 ${theme === "dark" ? "bg-gray-700" : "bg-gray-50"
                                 }`}>
@@ -579,8 +684,8 @@ export default function DecisionBoundariesPage() {
                             <tbody>
                                 {points.map((p, i) => (
                                     <tr key={i} className={`border-t ${theme === "dark"
-                                            ? "odd:bg-gray-700 even:bg-gray-800 border-gray-600"
-                                            : "odd:bg-gray-50 border-gray-200"
+                                        ? "odd:bg-gray-700/50 even:bg-gray-800/50 border-gray-700"
+                                        : "odd:bg-gray-50 border-gray-200"
                                         }`}>
                                         <td className="py-2 px-3">{p.x}</td>
                                         <td className="py-2 px-3">{p.y}</td>
@@ -595,50 +700,50 @@ export default function DecisionBoundariesPage() {
                 {/* ALGORITHMS EXPLAINED */}
                 <div className={`border rounded-lg p-5 shadow-sm ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                     }`}>
-                    <h3 className="font-semibold mb-3">Classification Algorithms Explained</h3>
+                    <h3 className="font-bold mb-3">Classification Algorithms Explained</h3>
                     <div className={`text-sm space-y-6 ${theme === "dark" ? "text-gray-300" : "text-gray-700"
                         }`}>
 
                         {/* KNN EXPLANATION */}
                         <div>
-                            <h4 className="font-semibold">K-Nearest Neighbors (KNN)</h4>
+                            <h4 className="font-bold">K-Nearest Neighbors (KNN)</h4>
                             <p>
                                 KNN is a non-parametric algorithm that classifies new data points based on the majority class of their 'k' nearest neighbors in the training data.
                             </p>
 
-                            <h5 className="font-medium mt-3">Distance Calculation</h5>
+                            <h5 className="font-bold mt-3">Distance Calculation</h5>
                             <p>It typically uses Euclidean distance to find the 'nearest' points.</p>
                             <FormulaBox>
                                 {`Distance = sqrt( (x₂ - x₁)² + (y₂ - y₁)² )`}
                             </FormulaBox>
 
-                            <h5 className="font-medium mt-3">Neighborhood Selection</h5>
+                            <h5 className="font-bold mt-3">Neighborhood Selection</h5>
                             <p>The algorithm identifies the 'k' data points from the training set that are closest to the new point.</p>
 
-                            <h5 className="font-medium mt-3">Majority Voting</h5>
+                            <h5 className="font-bold mt-3">Majority Voting</h5>
                             <p>The new point is assigned to the class that is most common among its 'k' nearest neighbors.</p>
 
-                            <h5 className="font-medium mt-3">Decision Boundary</h5>
+                            <h5 className="font-bold mt-3">Decision Boundary</h5>
                             <p>The boundary in KNN is created by the points where the majority vote changes. It's often complex and irregular, adapting to the local data distribution.</p>
                         </div>
 
                         {/* SVM EXPLANATION */}
                         <div>
-                            <h4 className="font-semibold">Support Vector Machine (Linear)</h4>
+                            <h4 className="font-bold">Support Vector Machine (Linear)</h4>
                             <p>
                                 A linear SVM tries to find the optimal "hyperplane" (a line in 2D) that best separates the two classes with the maximum possible margin.
                             </p>
 
-                            <h5 className="font-medium mt-3">Linear Decision Function</h5>
+                            <h5 className="font-bold mt-3">Linear Decision Function</h5>
                             <p>The function for the line is defined by weights (w) and a bias (b).</p>
                             <FormulaBox>
                                 {`f(x) = w₁x₁ + w₂x₂ + b = wᵀx + b`}
                             </FormulaBox>
 
-                            <h5 className="font-medium mt-3">Margin / Gutter</h5>
+                            <h5 className="font-bold mt-3">Margin / Gutter</h5>
                             <p>The SVM aims to maximize the distance between the decision line and the closest points from either class (the "support vectors"). These gutters are defined by:</p>
                             <FormulaBox>
-                                {`wᵀx + b = 1  (for Class A support vectors)
+                                {`wᵀx + b = 1  (for Class A support vectors)
 wᵀx + b = -1 (for Class B support vectors)`}
                             </FormulaBox>
 

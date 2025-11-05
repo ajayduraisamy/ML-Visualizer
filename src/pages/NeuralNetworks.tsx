@@ -1,4 +1,4 @@
-// src/pages/NeuralNetworks.tsx
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "../context/ThemeContext";
 
@@ -13,7 +13,7 @@ const XOR_DATA: Example[] = [
 const WIDTH = 420;
 const HEIGHT = 300;
 
-/** Helpers */
+
 const rand = (a = -1, b = 1) => Math.random() * (b - a) + a;
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const clamp255 = (v: number) => Math.max(0, Math.min(255, Math.floor(v)));
@@ -22,7 +22,7 @@ export default function NeuralNetworks() {
     const { theme } = useTheme();
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // initialize with sane default so render won't crash
+    
     const initNetwork = () => {
         const w0 = Array(8).fill(0).map(() => rand());
         const w1 = Array(4).fill(0).map(() => rand());
@@ -134,7 +134,7 @@ export default function NeuralNetworks() {
         const ctx = canvas?.getContext("2d", { willReadFrequently: true }) ?? null;
         if (!ctx || !canvas) return;
 
-        // Clear canvas with theme-appropriate background
+        
         ctx.fillStyle = theme === "dark" ? "#1f2937" : "#f9fafb";
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -150,7 +150,7 @@ export default function NeuralNetworks() {
         const w0 = weights[0] ?? Array(8).fill(0);
         const w1 = weights[1] ?? Array(4).fill(0);
 
-        // Draw connections (input->hidden)
+       
         inputPos.forEach((inp, i) => {
             hiddenPos.forEach((hid, j) => {
                 const w = w0[j * 2 + i] ?? 0;
@@ -165,7 +165,7 @@ export default function NeuralNetworks() {
             });
         });
 
-        // Draw connections (hidden->output)
+        
         hiddenPos.forEach((hid, i) => {
             const w = w1[i] ?? 0;
             ctx.beginPath();
@@ -178,15 +178,15 @@ export default function NeuralNetworks() {
             ctx.stroke();
         });
 
-        // Draw neurons
+       
         const drawNeuron = (x: number, y: number, act: number, label?: string) => {
             const a = clamp01(act);
             ctx.beginPath();
             ctx.arc(x, y, neuronRadius, 0, 2 * Math.PI);
 
-            // Theme-aware neuron colors
+            
             if (theme === "dark") {
-                const val = clamp255(a * 200 + 55); // Brighter in dark mode
+                const val = clamp255(a * 200 + 55); 
                 ctx.fillStyle = `rgba(${val}, ${val}, 255, 0.9)`;
             } else {
                 const val = clamp255(a * 200 + 55);
@@ -198,7 +198,7 @@ export default function NeuralNetworks() {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Text color based on theme
+           
             ctx.fillStyle = theme === "dark" ? "#f9fafb" : "#111827";
             ctx.font = "12px system-ui, -apple-system, sans-serif";
             ctx.textAlign = "center";
@@ -206,7 +206,7 @@ export default function NeuralNetworks() {
             ctx.fillText(label ?? act.toFixed(2), x, y);
         };
 
-        // Draw layer labels
+      
         ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#6b7280";
         ctx.font = "14px system-ui, -apple-system, sans-serif";
         ctx.textAlign = "center";
@@ -214,15 +214,15 @@ export default function NeuralNetworks() {
         ctx.fillText("Hidden Layer", 210, 280);
         ctx.fillText("Output Layer", 340, 220);
 
-        // inputs
+       
         inputPos.forEach((p, i) =>
             drawNeuron(p.x, p.y, currentExample.inputs[i], currentExample.inputs[i].toString())
         );
 
-        // hidden
+       
         hiddenPos.forEach((p, i) => drawNeuron(p.x, p.y, hiddenOutputs[i] ?? 0.5));
 
-        // output
+       
         drawNeuron(outputPos[0].x, outputPos[0].y, output ?? 0.5, (output ?? 0.5).toFixed(2));
     }, [weights, hiddenOutputs, output, currentExample, theme]);
 
@@ -236,7 +236,7 @@ export default function NeuralNetworks() {
                 : "bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-gray-900"
             }`}>
             <div className="max-w-7xl mx-auto px-6">
-                {/* Header */}
+               
                 <div className="text-center mb-12">
                     <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
                         Neural Network Learning XOR
@@ -247,9 +247,9 @@ export default function NeuralNetworks() {
                     </p>
                 </div>
 
-                {/* Main Content Grid */}
+                
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-12">
-                    {/* Neural Network Visualization */}
+                   
                     <div className="xl:col-span-2">
                         <div className={`p-6 rounded-2xl shadow-2xl border ${theme === "dark"
                                 ? "bg-gray-800 border-gray-700"
@@ -278,14 +278,14 @@ export default function NeuralNetworks() {
                         </div>
                     </div>
 
-                    {/* Training Controls & Stats */}
+                   
                     <div className={`p-6 rounded-2xl shadow-2xl border ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
                             : "bg-white border-gray-200"
                         }`}>
                         <h2 className="text-2xl font-bold mb-6">Training Dashboard</h2>
 
-                        {/* Stats Grid */}
+                       
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className={`p-4 rounded-xl ${theme === "dark" ? "bg-gray-700" : "bg-blue-50"
                                 }`}>
@@ -312,7 +312,7 @@ export default function NeuralNetworks() {
                             </div>
                         </div>
 
-                        {/* Current Example */}
+                     
                         <div className={`p-4 rounded-xl mb-6 ${theme === "dark" ? "bg-gray-700" : "bg-gray-50"
                             }`}>
                             <div className="text-sm opacity-75 mb-2">Current Example</div>
@@ -321,7 +321,7 @@ export default function NeuralNetworks() {
                             </div>
                         </div>
 
-                        {/* Controls */}
+                       
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium mb-2">
@@ -368,7 +368,7 @@ export default function NeuralNetworks() {
                     </div>
                 </div>
 
-                {/* Test Network Section */}
+              
                 <div className={`p-8 rounded-2xl shadow-2xl border mb-12 ${theme === "dark"
                         ? "bg-gray-800 border-gray-700"
                         : "bg-white border-gray-200"
@@ -408,9 +408,9 @@ export default function NeuralNetworks() {
                     </div>
                 </div>
 
-                {/* Educational Content */}
+                
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left Column */}
+                   
                     <div className="space-y-8">
                         <section className={`p-6 rounded-2xl shadow-lg border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                             }`}>
@@ -471,7 +471,7 @@ export default function NeuralNetworks() {
                         </section>
                     </div>
 
-                    {/* Right Column */}
+                    
                     <div className="space-y-8">
                         <section className={`p-6 rounded-2xl shadow-lg border ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
                             }`}>
