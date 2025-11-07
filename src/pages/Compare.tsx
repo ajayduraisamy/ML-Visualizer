@@ -46,10 +46,33 @@ export default function Compare() {
     const animationRef = useRef<number>(0);
     const frameRef = useRef<number>(0);
 
+    const [linearProgress, setLinearProgress] = useState(0);
+    const [nnProgress, setNnProgress] = useState(0);
+    const [cnnProgress, setCnnProgress] = useState(0);
 
-    const [_linearProgress, setLinearProgress] = useState(0);
-    const [_nnProgress, setNnProgress] = useState(0);
-    const [_cnnProgress, setCnnProgress] = useState(0);
+   
+    const getAxisLimits = () => {
+        if (points.length === 0) return { xMin: 0, xMax: 6, yMin: 0, yMax: 6 };
+
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+
+        const xMin = Math.min(...xs);
+        const xMax = Math.max(...xs);
+        const yMin = Math.min(...ys);
+        const yMax = Math.max(...ys);
+
+        
+        const xPadding = (xMax - xMin) * 0.1;
+        const yPadding = (yMax - yMin) * 0.1;
+
+        return {
+            xMin: Math.max(0, xMin - xPadding),
+            xMax: xMax + xPadding,
+            yMin: Math.max(0, yMin - yPadding),
+            yMax: yMax + yPadding
+        };
+    };
 
     const calculateRegression = () => {
         const xs = points.map((p) => p.x);
@@ -82,25 +105,47 @@ export default function Compare() {
             y: intercept + slope * x
         }));
 
-        
         const visibleCount = Math.floor(animatedPoints.length * progress);
         return animatedPoints.slice(0, visibleCount);
     };
 
-  
-    const animateActivation = (progress: number) => {
-        return Array.from({ length: 50 }, (_, i) => {
-            const x = (i / 5 - 5) + progress * 2;
-            return progress >= 0.5 ? 1 / (1 + Math.exp(-x)) : 0;
+
+    const animateNeuralNetwork = (progress: number) => {
+        const { slope, intercept } = calculateRegression();
+        const xs = points.map(p => p.x);
+
+       
+        return xs.map(x => {
+            
+            const basePrediction = intercept + slope * x;
+            const nonLinearComponent = Math.sin(x * 0.8) * progress * 2;
+            return {
+                x,
+                y: basePrediction * (1 - progress) + (basePrediction + nonLinearComponent) * progress
+            };
         });
     };
 
-    // Slow animation for CNN features
-    const animateFeatures = (progress: number) => {
-        const baseFeatures = [0.2, 0.6, 0.8, 0.5, 0.9];
-        return baseFeatures.map((val, i) =>
-            val * Math.min(1, progress * 2) * (0.8 + 0.4 * Math.sin(progress * Math.PI * 2 + i * 0.5))
-        );
+    
+    const animateCNN = (progress: number) => {
+        const { slope, intercept } = calculateRegression();
+        const xs = points.map(p => p.x);
+
+       
+        return xs.map(x => {
+            const normalizedProgress = progress * 1.5;
+            const basePrediction = intercept + slope * x;
+
+           
+            const feature1 = Math.max(0, x - 2) * progress; 
+            const feature2 = Math.sin(x * 0.5) * progress * 0.5;
+
+            return {
+                x,
+                y: basePrediction * (1 - normalizedProgress) +
+                    (basePrediction + feature1 + feature2) * normalizedProgress
+            };
+        });
     };
 
     useEffect(() => {
@@ -110,9 +155,10 @@ export default function Compare() {
 
         if (!ctx1 || !ctx2 || !ctx3) return;
 
-        const { slope, intercept  } = calculateRegression();
+        const { slope, intercept } = calculateRegression();
+        const axisLimits = getAxisLimits();
 
-        
+       
         const linearChart = new Chart(ctx1, {
             type: "scatter",
             data: {
@@ -149,22 +195,22 @@ export default function Compare() {
             options: {
                 responsive: true,
                 animation: {
-                    duration: 0 
+                    duration: 0
                 },
                 scales: {
                     x: {
                         type: "linear",
                         title: { display: true, text: "X" },
                         grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
-                        min: 0,
-                        max: 6
+                        min: axisLimits.xMin,
+                        max: axisLimits.xMax
                     },
                     y: {
                         type: "linear",
                         title: { display: true, text: "Y" },
                         grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
-                        min: 0,
-                        max: 6
+                        min: axisLimits.yMin,
+                        max: axisLimits.yMax
                     },
                 },
                 plugins: {
@@ -182,36 +228,27 @@ export default function Compare() {
             },
         });
 
-     
+        
         const nnChart = new Chart(ctx2, {
-            type: "line",
+            type: "scatter",
             data: {
-                labels: Array.from({ length: 50 }, (_, i) => i),
                 datasets: [
                     {
-                        label: "Sigmoid Activation",
-                        data: Array(50).fill(0),
+                        label: "Data Points",
+                        data: points,
+                        backgroundColor: "#3b82f6",
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                    },
+                    {
+                        label: "NN Prediction",
+                        type: "line",
+                        data: [],
                         borderColor: "#f59e0b",
                         borderWidth: 3,
                         fill: false,
-                        tension: 0.1,
-                    },
-                    {
-                        label: "Tanh Activation",
-                        data: Array(50).fill(0),
-                        borderColor: "#8b5cf6",
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        fill: false,
-                        tension: 0.1,
-                    },
-                    {
-                        label: "ReLU Activation",
-                        data: Array(50).fill(0),
-                        borderColor: "#ef4444",
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0,
+                        tension: 0.4, 
+                        pointRadius: 0,
                     }
                 ],
             },
@@ -222,38 +259,57 @@ export default function Compare() {
                 responsive: true,
                 scales: {
                     x: {
-                        title: { display: true, text: "Input Signal" },
-                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' }
+                        type: "linear",
+                        title: { display: true, text: "X" },
+                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
+                        min: axisLimits.xMin,
+                        max: axisLimits.xMax
                     },
                     y: {
-                        title: { display: true, text: "Activation Output" },
+                        type: "linear",
+                        title: { display: true, text: "Y" },
                         grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
-                        min: -1,
-                        max: 1
+                        min: axisLimits.yMin,
+                        max: axisLimits.yMax
                     },
                 },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                if (context.dataset.label === "Data Points") {
+                                    return `Point: (${context.parsed.x}, ${context.parsed.y})`;
+                                }
+                                return context.dataset.label || '';
+                            }
+                        }
+                    }
+                }
             },
         });
 
-      
+       
         const cnnChart = new Chart(ctx3, {
-            type: "bar",
+            type: "scatter",
             data: {
-                labels: ["Edge 1", "Edge 2", "Corner", "Texture", "Pattern"],
                 datasets: [
                     {
-                        label: "Feature Strength",
-                        data: [0, 0, 0, 0, 0],
-                        backgroundColor: [
-                            "#3b82f6",
-                            "#60a5fa",
-                            "#10b981",
-                            "#facc15",
-                            "#ef4444",
-                        ],
-                        borderColor: theme === 'dark' ? '#1f2937' : '#ffffff',
-                        borderWidth: 2,
+                        label: "Data Points",
+                        data: points,
+                        backgroundColor: "#3b82f6",
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
                     },
+                    {
+                        label: "CNN Prediction",
+                        type: "line",
+                        data: [],
+                        borderColor: "#10b981",
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 0,
+                    }
                 ],
             },
             options: {
@@ -262,20 +318,37 @@ export default function Compare() {
                     duration: 0
                 },
                 scales: {
-                    y: {
-                        min: 0,
-                        max: 1,
-                        title: { display: true, text: "Activation Strength" },
-                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' }
-                    },
                     x: {
-                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' }
-                    }
+                        type: "linear",
+                        title: { display: true, text: "X" },
+                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
+                        min: axisLimits.xMin,
+                        max: axisLimits.xMax
+                    },
+                    y: {
+                        type: "linear",
+                        title: { display: true, text: "Y" },
+                        grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' },
+                        min: axisLimits.yMin,
+                        max: axisLimits.yMax
+                    },
                 },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                if (context.dataset.label === "Data Points") {
+                                    return `Point: (${context.parsed.x}, ${context.parsed.y})`;
+                                }
+                                return context.dataset.label || '';
+                            }
+                        }
+                    }
+                }
             },
         });
 
-        
+       
         const animate = () => {
             frameRef.current++;
 
@@ -284,12 +357,9 @@ export default function Compare() {
                 setLinearProgress(prev => {
                     const newProgress = Math.min(1, prev + 0.002);
 
-
-                    
                     const animatedLine = animateLinearRegression(newProgress);
                     linearChart.data.datasets[1].data = animatedLine;
 
-                    
                     const errorLines = points.flatMap((point, index) =>
                         index < Math.floor(points.length * newProgress)
                             ? [
@@ -305,36 +375,23 @@ export default function Compare() {
                 });
             }
 
-            
+           
             if (animationState.nn === 'playing') {
                 setNnProgress(prev => {
                     const newProgress = Math.min(1, prev + 0.0015);
-
-
-                    
-                    nnChart.data.datasets[0].data = animateActivation(newProgress);
-
-                  
-                    nnChart.data.datasets[1].data = Array.from({ length: 50 }, (_, i) =>
-                        newProgress >= 0.3 ? Math.tanh(i / 5 - 5) * newProgress : 0
-                    );
-
-                   
-                    nnChart.data.datasets[2].data = Array.from({ length: 50 }, (_, i) =>
-                        newProgress >= 0.6 ? Math.max(0, i / 5 - 3) * newProgress : 0
-                    );
-
+                    const nnPredictions = animateNeuralNetwork(newProgress);
+                    nnChart.data.datasets[1].data = nnPredictions;
                     nnChart.update('none');
                     return newProgress;
                 });
             }
 
-         
+           
             if (animationState.cnn === 'playing') {
                 setCnnProgress(prev => {
-                    const newProgress = (prev + 0.001) % 1;
-
-                    cnnChart.data.datasets[0].data = animateFeatures(newProgress);
+                    const newProgress = Math.min(1, prev + 0.001);
+                    const cnnPredictions = animateCNN(newProgress);
+                    cnnChart.data.datasets[1].data = cnnPredictions;
                     cnnChart.update('none');
                     return newProgress;
                 });
@@ -346,7 +403,8 @@ export default function Compare() {
         if (animationState.linear === 'playing' || animationState.nn === 'playing' || animationState.cnn === 'playing') {
             animate();
         } else {
-            
+          
+
             if (animationState.linear === 'paused') setLinearProgress(0);
             if (animationState.nn === 'paused') setNnProgress(0);
             if (animationState.cnn === 'paused') setCnnProgress(0);
@@ -368,6 +426,10 @@ export default function Compare() {
             setXInput("");
             setYInput("");
         }
+    };
+
+    const removePoint = (index: number) => {
+        setPoints(prev => prev.filter((_, i) => i !== index));
     };
 
     const toggleAnimation = (chart: keyof typeof animationState) => {
@@ -405,7 +467,7 @@ export default function Compare() {
                     Model Comparison
                 </h1>
 
-                {/* Controls */}
+                
                 <div className="flex flex-wrap justify-center gap-3 mb-6">
                     <input
                         type="number"
@@ -435,9 +497,31 @@ export default function Compare() {
                     </button>
                 </div>
 
+               
+                <div className="mb-6 text-center">
+                    <h3 className="text-lg font-semibold mb-2">Current Data Points:</h3>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        {points.map((point, index) => (
+                            <div
+                                key={index}
+                                className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                                    }`}
+                            >
+                                ({point.x}, {point.y})
+                                <button
+                                    onClick={() => removePoint(index)}
+                                    className="text-red-500 hover:text-red-700 text-xs"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                   
+                 
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
@@ -473,13 +557,13 @@ export default function Compare() {
                             <h3 className="font-semibold flex items-center gap-2 text-blue-300">
                                 <FaCalculator /> Regression Calculations
                             </h3>
-                            <div className="text-xs space-y-1 mt-2"> 
-                      
+                            <div className="text-xs space-y-1 mt-2">
                                 <p className="text-white " >Slope (m): <span className="text-green-500">{calculations.slope.toFixed(3)}</span></p>
                                 <p className="text-white " >Intercept (b): <span className="text-orange-500">{calculations.intercept.toFixed(3)}</span></p>
                                 <p className="text-white " >Equation: <span className="text-purple-500"> y = {calculations.slope.toFixed(3)}x + {calculations.intercept.toFixed(3)}</span></p>
                                 <p className="text-white " >R²: <span className="text-yellow-500">{calculations.rSquared.toFixed(4)}</span></p>
                                 <p className="text-white " >MSE: <span className="text-red-500">{calculations.mse.toFixed(4)}</span></p>
+                                <p className="text-white " >Progress: <span className="text-blue-500">{(linearProgress * 100).toFixed(0)}%</span></p>
                             </div>
                         </div>
                     </div>
@@ -510,18 +594,19 @@ export default function Compare() {
                        
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-yellow-300">
-                                <FaCalculator /> Activation Functions
+                                <FaCalculator /> Neural Network Learning
                             </h3>
                             <div className="text-xs space-y-1 mt-2">
-                                <p className="text-white ">Sigmoid: <span className="text-green-500">1 / (1 + e⁻ˣ) </span> </p>
-                                <p className="text-white ">Tanh: <span className="text-orange-500"> (e²ˣ - 1) / (e²ˣ + 1) </span> </p>
-                                <p className="text-white ">ReLU: <span className="text-purple-500">max(0, x) </span> </p>
-                                <p className="text-white " >Forward Pass: <span className="text-yellow-500"> z = w⋅x + b </span> </p>
-                                <p className="text-white ">Activation: <span className="text-red-500">a = σ(z) </span> </p>
+                                <p className="text-white ">Learning Rate: <span className="text-green-500">0.001</span></p>
+                                <p className="text-white ">Epochs: <span className="text-orange-500">{(nnProgress * 1000).toFixed(0)}</span></p>
+                                <p className="text-white ">Activation: <span className="text-purple-500">ReLU/Sigmoid</span></p>
+                                <p className="text-white " >Layers: <span className="text-yellow-500">3 Hidden</span></p>
+                                <p className="text-white ">Loss: <span className="text-red-500">{(1 - nnProgress).toFixed(3)}</span></p>
                             </div>
                         </div>
                     </div>
 
+                   
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
@@ -530,7 +615,7 @@ export default function Compare() {
                     >
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-semibold flex items-center gap-2">
-                                <FaNetworkWired className="text-green-500" /> CNN Feature Map
+                                <FaNetworkWired className="text-green-500" /> CNN
                             </h2>
                             <button
                                 onClick={() => {
@@ -547,14 +632,14 @@ export default function Compare() {
                        
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-green-300">
-                                <FaCalculator /> CNN Operations
+                                <FaCalculator /> CNN Feature Learning
                             </h3>
                             <div className="text-xs space-y-1 mt-2">
-                                <p className="text-white ">Convolution: <span className="text-green-500">∑(input × kernel)</span></p>
-                                <p className="text-white ">Pooling: <span className="text-orange-500">max/avg of local regions</span></p>
-                                <p className="text-white ">Feature Maps: <span className="text-purple-500">Learned pattern detectors</span></p>
-                                <p className="text-white">Kernel Size: <span className="text-yellow-500">3×3, Stride: 1</span></p>
-                                <p className="text-white "> Padding:  <span className="text-red-500">Same/Valid</span></p>
+                                <p className="text-white ">Convolution Layers: <span className="text-green-500">2</span></p>
+                                <p className="text-white ">Kernel Size: <span className="text-orange-500">3×3</span></p>
+                                <p className="text-white ">Feature Maps: <span className="text-purple-500">32, 64</span></p>
+                                <p className="text-white">Pooling: <span className="text-yellow-500">MaxPool 2×2</span></p>
+                                <p className="text-white " >Training Progress: <span className="text-red-500">{(cnnProgress * 100).toFixed(1)}%</span></p>
                             </div>
                         </div>
                     </div>

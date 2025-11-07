@@ -24,16 +24,24 @@ function calcRegression(points: Point[]) {
 }
 
 
-function generateRandomPoints(count: number = 12): Point[] {
+function generateRandomPoints(count: number = 10): Point[] {
     const points: Point[] = [];
+
+    const slope = (Math.random() * 2 - 1) * 0.9; // -0.9 → +0.9
+    const intercept = 2 + Math.random() * 5;     // 2–7
+    const noise = 1 + Math.random() * 1.5;        // 1–2.5
+
     for (let i = 0; i < count; i++) {
-        points.push({
-            x: Math.random() * 6, 
-            y: Math.random() * 9  
-        });
+        const x = 0.5 + (i / (count - 1)) * 5.5;
+        let y = intercept + slope * x + (Math.random() - 0.5) * noise;
+        y = Math.max(0.5, Math.min(9.5, y)); // fully inside 0–10
+        points.push({ x, y });
     }
-    return points;
+
+    return points.sort((a, b) => a.x - b.x);
 }
+
+
 
 export default function LinearRegression() {
     const { theme } = useTheme();
@@ -70,9 +78,15 @@ export default function LinearRegression() {
     const [currentAnimationStep, setCurrentAnimationStep] = useState(0);
 
     const getDomain = useCallback(() => {
-        const currentPoints = points;
+        // Keep fixed ranges during animation
+        if (isAnimatingLine || isAnimating) {
+            return { xmin: 0, xmax: 6, ymin: 0, ymax: 10 };
+        }
 
+        // Normal adaptive scaling for user-added points
+        const currentPoints = points;
         if (currentPoints.length === 0) return { xmin: 0, xmax: 10, ymin: 0, ymax: 10 };
+
         const xs = currentPoints.map((p) => p.x);
         const ys = currentPoints.map((p) => p.y);
         let xmin = Math.min(...xs);
@@ -87,10 +101,11 @@ export default function LinearRegression() {
         ymin = Math.floor(ymin - ypad);
         ymax = Math.ceil(ymax + ypad);
 
-        if (Math.abs(xmax - xmin) < 1e-6) { xmax = xmin + 5; }
-        if (Math.abs(ymax - ymin) < 1e-6) { ymax = ymin + 5; }
+        if (Math.abs(xmax - xmin) < 1e-6) xmax = xmin + 5;
+        if (Math.abs(ymax - ymin) < 1e-6) ymax = ymin + 5;
+
         return { xmin, xmax, ymin, ymax };
-    }, [points]);
+    }, [points, isAnimatingLine, isAnimating]);
 
 
     function dataToPixel(x: number, y: number, width: number, height: number) {
@@ -319,44 +334,58 @@ export default function LinearRegression() {
     useEffect(() => {
         if (!isAnimatingLine) return;
 
+        const randomPoints = generateRandomPoints(10);
+        const { m: finalM, b: finalB } = calcRegression(randomPoints);
 
-        const randomPoints = generateRandomPoints(12);
-        setAnimationPoints(randomPoints);
-        setCurrentAnimationStep(0);
+        setAnimationPoints([]); // start empty, reveal gradually
         setShowResiduals(false);
         setIsAnimating(true);
 
-        const totalSteps = randomPoints.length - 1;
-        const stepDuration = Math.max(100, 3000 - animSpeed * 25); 
+        const pointDelay = 300; // ms between each point appearing
+        const totalDuration = 4000 - animSpeed * 25; // overall duration (faster with slider)
+        const lineStartDelay = randomPoints.length * pointDelay + 500;
 
-        let currentStep = 0;
+        // --- 1️⃣ Stage 1: Add points one by one ---
+        randomPoints.forEach((p, i) => {
+            setTimeout(() => {
+                setAnimationPoints((prev) => [...prev, p]);
+            }, i * pointDelay);
+        });
 
-        const animateStep = () => {
-            if (currentStep <= totalSteps) {
-                setCurrentAnimationStep(currentStep);
-                currentStep++;
-                setTimeout(animateStep, stepDuration);
-            } else {
-               
-                const { m: finalM, b: finalB } = calcRegression(randomPoints);
-                setCurrentM(finalM);
-                setCurrentB(finalB);
+        // --- 2️⃣ Stage 2: Animate regression line after all points appear ---
+        setTimeout(() => {
+            const start = performance.now();
 
-                setTimeout(() => {
-                    setIsAnimating(false);
-                    setIsAnimatingLine(false);
-                    setShowResiduals(true);
-                    setAnimationPoints([]);
-                }, 500);
-            }
-        };
+            const animateLine = (t: number) => {
+                const progress = Math.min(1, (t - start) / totalDuration);
+                const ease = 1 - Math.pow(1 - progress, 3); // smooth ease-out
 
-        animateStep();
+                // Interpolate slope & intercept
+                setCurrentM(finalM * ease);
+                setCurrentB(finalB * ease);
 
-        return () => {
-            
-        };
+                draw();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateLine);
+                } else {
+                    setCurrentM(finalM);
+                    setCurrentB(finalB);
+
+                    // --- 3️⃣ Stage 3: Show residuals & finalize ---
+                    setTimeout(() => {
+                        setShowResiduals(true);
+                        setIsAnimating(false);
+                        setIsAnimatingLine(false);
+                    }, 500);
+                }
+            };
+
+            requestAnimationFrame(animateLine);
+        }, lineStartDelay);
     }, [isAnimatingLine, animSpeed]);
+
+
 
     useEffect(() => {
         draw();
