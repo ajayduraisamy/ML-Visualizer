@@ -287,7 +287,9 @@ export default function LinearRegression() {
     useEffect(() => {
         if (!isAnimating) return;
 
-        const duration = Math.max(80, animSpeed * 8);
+        
+        const duration = 2000 - animSpeed * 15; 
+
         const startTime = performance.now();
         const startM = currentM;
         const startB = currentB;
@@ -298,27 +300,13 @@ export default function LinearRegression() {
             const elapsed = t - startTime;
             const norm = Math.min(1, elapsed / duration);
 
-           
-            const ease = norm < 0.5 ? 4 * norm * norm * norm : 1 - Math.pow(-2 * norm + 2, 3) / 2;
+            // smooth easing
+            const ease = norm < 0.5
+                ? 4 * norm * norm * norm
+                : 1 - Math.pow(-2 * norm + 2, 3) / 2;
 
-            
-            const baseM = startM + deltaM * ease;
-            const baseB = startB + deltaB * ease;
-
-          
-            const spiralRadius = 1 - ease;
-
-            
-            const angle = elapsed / 80; 
-
-
-
-            const spiralM = Math.cos(angle) * 2.0 * spiralRadius;
-            const spiralB = Math.sin(angle) * 4.0 * spiralRadius; 
-
-           
-            const newM = baseM + spiralM;
-            const newB = baseB + spiralB;
+            const newM = startM + deltaM * ease;
+            const newB = startB + deltaB * ease;
 
             setCurrentM(newM);
             setCurrentB(newB);
@@ -326,7 +314,6 @@ export default function LinearRegression() {
             if (norm < 1) {
                 rafRef.current = requestAnimationFrame(step);
             } else {
-                
                 setCurrentM(targetM);
                 setCurrentB(targetB);
                 setIsAnimating(false);
@@ -340,8 +327,9 @@ export default function LinearRegression() {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
         };
-        
     }, [isAnimating, animSpeed, targetM, targetB]);
+
+
     
 
 
@@ -361,75 +349,89 @@ export default function LinearRegression() {
             const px = e.clientX - r.left;
             const py = e.clientY - r.top;
 
-           
-            if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
-                setHoverIdx(null);
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            // Out of bounds
+            if (px < PADDING || px > width - PADDING || py < PADDING || py > height - PADDING) {
                 draw();
                 return;
             }
 
-            
-            let nearest: number | null = null;
-            let minD = 9999;
-            const width = canvas.clientWidth;
-            const height = canvas.clientHeight;
-            points.forEach((p, i) => {
-                const { px: cx, py: cy } = dataToPixel(p.x, p.y, width, height);
-                const d = Math.hypot(cx - px, cy - py);
-                if (d < minD && d < 12) {
-                    minD = d;
-                    nearest = i;
-                }
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+
+            // Redraw full chart
+            draw();
+
+            // Convert to data coordinates
+            const { x: dataX } = pixelToData(px, py, width, height);
+            const predictedY = currentM * dataX + currentB;
+
+            // Calculate residuals
+            const residuals = points.map((p, i) => {
+                const hoverPred = currentM * dataX + currentB; // predicted Y at hover X
+                const diff = p.y - hoverPred; // difference from hover-predicted Y
+                return `Residual ${i}: ${diff.toFixed(4)}`;
             });
+            // Tooltip lines
+            const lines = [
+                `x: ${dataX.toFixed(3)}`,
+                `Regression Line: ${predictedY.toFixed(4)}`,
+                ...residuals
+            ];
 
-            
-            setHoverIdx(prevIdx => {
-                if (prevIdx !== nearest) {
-                    draw(); 
-                }
-                return nearest;
-            });
-        };
+            // Measure box size
+            ctx.font = "12px sans-serif";
+            const textWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+            const boxWidth = textWidth + 20;
+            const boxHeight = lines.length * 18 + 10;
 
-        const onClick = (e: MouseEvent) => {
-            const r = rect();
-            const px = e.clientX - r.left;
-            const py = e.clientY - r.top;
+            // Place tooltip at top-right or near mouse
+            let boxX = px + 20;
+            let boxY = py - boxHeight / 2;
 
-            
-            if (px < PADDING || px > canvas.clientWidth - PADDING || py < PADDING || py > canvas.clientHeight - PADDING) {
-                return;
+            if (boxX + boxWidth > width - PADDING) boxX = px - boxWidth - 20;
+            if (boxY < PADDING) boxY = PADDING;
+            if (boxY + boxHeight > height - PADDING) boxY = height - PADDING - boxHeight;
+
+            // Tooltip background
+            ctx.fillStyle =
+                theme === "dark"
+                    ? "rgba(31,41,55,0.95)"
+                    : "rgba(255,255,255,0.95)";
+            ctx.strokeStyle = theme === "dark" ? "#6b7280" : "#999";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(boxX, boxY, boxWidth, boxHeight);
+            ctx.fill();
+            ctx.stroke();
+
+            // Tooltip text
+            ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#111827";
+            ctx.fillText(lines[0], boxX + 10, boxY + 18);
+
+            ctx.fillStyle = theme === "dark" ? "#ef4444" : "red";
+            ctx.fillText(lines[1], boxX + 10, boxY + 36);
+
+            ctx.fillStyle = theme === "dark" ? "#10b981" : "green";
+            for (let i = 2; i < lines.length; i++) {
+                ctx.fillText(lines[i], boxX + 10, boxY + 18 + i * 18);
             }
-
-            const width = canvas.clientWidth;
-            const height = canvas.clientHeight;
-            const data = pixelToData(px, py, width, height);
-           
-            setPoints((prev) => [...prev, { x: Number(data.x.toFixed(4)), y: Number(data.y.toFixed(4)) }]);
-            
-            setManualM(null);
-            setManualB(null);
-            setTimeout(() => {
-                
-
-                setIsAnimating(true);
-                setShowResiduals(true);
-            }, 50);
         };
+
+        const onLeave = () => draw();
 
         canvas.addEventListener("mousemove", onMove);
-        canvas.addEventListener("mouseleave", () => {
-            setHoverIdx(null);
-            draw();
-        });
-        canvas.addEventListener("click", onClick);
+        canvas.addEventListener("mouseleave", onLeave);
 
         return () => {
             canvas.removeEventListener("mousemove", onMove);
-            canvas.removeEventListener("click", onClick);
+            canvas.removeEventListener("mouseleave", onLeave);
         };
-       
-    }, [points, currentM, currentB, getDomain, draw]); 
+    }, [points, currentM, currentB, theme, draw]);
+
+        
 
 
     useEffect(() => {
@@ -607,7 +609,8 @@ export default function LinearRegression() {
 
                         <div>
                             <div className="text-sm mb-1 flex justify-between">
-                                <span>Animation Speed:</span>
+                                <span>Animation Speed (← slower | faster →):</span>
+
                                 <span className="font-medium">{animSpeed}</span>
                             </div>
                             <input
