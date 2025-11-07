@@ -110,7 +110,7 @@ export default function Compare() {
 
         if (!ctx1 || !ctx2 || !ctx3) return;
 
-        const { slope, intercept, regressionY, xs } = calculateRegression();
+        const { slope, intercept  } = calculateRegression();
 
         
         const linearChart = new Chart(ctx1, {
