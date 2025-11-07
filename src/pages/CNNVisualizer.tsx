@@ -283,8 +283,9 @@ export default function CNNVisualizer() {
         if (processing) return;
         setSelectedDigit(d);
         if (inputCanvasRef.current) drawDigitCanvas(inputCanvasRef.current, d, 28);
-        processPipeline(d);
+        
     }
+
 
     function handleReset() {
         if (processing) return;
