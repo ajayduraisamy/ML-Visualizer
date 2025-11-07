@@ -475,11 +475,11 @@ export default function Compare() {
                             </h3>
                             <div className="text-xs space-y-1 mt-2"> 
                       
-                                <p>Slope (m): <span className="text-green-400">{calculations.slope.toFixed(3)}</span></p>
-                                <p>Intercept (b): <span className="text-green-400">{calculations.intercept.toFixed(3)}</span></p>
-                                <p>Equation: <span className="text-green-400"> y = {calculations.slope.toFixed(3)}x + {calculations.intercept.toFixed(3)}</span></p>
-                                <p>R²: <span className="text-yellow-400">{calculations.rSquared.toFixed(4)}</span></p>
-                                <p>MSE: <span className="text-red-400">{calculations.mse.toFixed(4)}</span></p>
+                                <p className="text-white " >Slope (m): <span className="text-green-500">{calculations.slope.toFixed(3)}</span></p>
+                                <p className="text-white " >Intercept (b): <span className="text-orange-500">{calculations.intercept.toFixed(3)}</span></p>
+                                <p className="text-white " >Equation: <span className="text-purple-500"> y = {calculations.slope.toFixed(3)}x + {calculations.intercept.toFixed(3)}</span></p>
+                                <p className="text-white " >R²: <span className="text-yellow-500">{calculations.rSquared.toFixed(4)}</span></p>
+                                <p className="text-white " >MSE: <span className="text-red-500">{calculations.mse.toFixed(4)}</span></p>
                             </div>
                         </div>
                     </div>
@@ -513,11 +513,11 @@ export default function Compare() {
                                 <FaCalculator /> Activation Functions
                             </h3>
                             <div className="text-xs space-y-1 mt-2">
-                                <p className="text-orange-400">Sigmoid: 1 / (1 + e⁻ˣ)</p>
-                                <p className="text-purple-400">Tanh: (e²ˣ - 1) / (e²ˣ + 1)</p>
-                                <p className="text-red-400">ReLU: max(0, x)</p>
-                                <p className="text-gray-400 mt-2">Forward Pass: z = w⋅x + b</p>
-                                <p className="text-gray-400">Activation: a = σ(z)</p>
+                                <p className="text-white ">Sigmoid: <span className="text-green-500">1 / (1 + e⁻ˣ) </span> </p>
+                                <p className="text-white ">Tanh: <span className="text-orange-500"> (e²ˣ - 1) / (e²ˣ + 1) </span> </p>
+                                <p className="text-white ">ReLU: <span className="text-purple-500">max(0, x) </span> </p>
+                                <p className="text-white " >Forward Pass: <span className="text-yellow-500"> z = w⋅x + b </span> </p>
+                                <p className="text-white ">Activation: <span className="text-red-500">a = σ(z) </span> </p>
                             </div>
                         </div>
                     </div>
@@ -550,11 +550,11 @@ export default function Compare() {
                                 <FaCalculator /> CNN Operations
                             </h3>
                             <div className="text-xs space-y-1 mt-2">
-                                <p>Convolution: ∑(input × kernel)</p>
-                                <p>Pooling: max/avg of local regions</p>
-                                <p>Feature Maps: Learned pattern detectors</p>
-                                <p className="text-gray-400 mt-2">Kernel Size: 3×3, Stride: 1</p>
-                                <p className="text-gray-400">Padding: Same/Valid</p>
+                                <p className="text-white ">Convolution: <span className="text-green-500">∑(input × kernel)</span></p>
+                                <p className="text-white ">Pooling: <span className="text-orange-500">max/avg of local regions</span></p>
+                                <p className="text-white ">Feature Maps: <span className="text-purple-500">Learned pattern detectors</span></p>
+                                <p className="text-white">Kernel Size: <span className="text-yellow-500">3×3, Stride: 1</span></p>
+                                <p className="text-white "> Padding:  <span className="text-red-500">Same/Valid</span></p>
                             </div>
                         </div>
                     </div>
@@ -570,7 +570,7 @@ export default function Compare() {
                         <p className="text-sm mb-3">
                             Finds the best-fit line (Y = mX + b) using Ordinary Least Squares to minimize the sum of squared errors.
                         </p>
-                        <div className="text-xs text-gray-400 space-y-1">
+                        <div className="text-xs space-y-1">
                             <p>• Cost Function: MSE = 1/n ∑(yᵢ - ŷᵢ)²</p>
                             <p>• Gradient: ∂/∂m = -2/n ∑xᵢ(yᵢ - ŷᵢ)</p>
                             <p>• Closed Form: m = Σ(x-x̄)(y-ȳ) / Σ(x-x̄)²</p>
@@ -586,7 +586,7 @@ export default function Compare() {
                         <p className="text-sm mb-3">
                             Multi-layer perceptron with non-linear activation functions for complex pattern recognition.
                         </p>
-                        <div className="text-xs text-gray-400 space-y-1">
+                        <div className="text-xs  space-y-1">
                             <p>• Forward: a⁽ˡ⁾ = σ(w⁽ˡ⁾a⁽ˡ⁻¹⁾ + b⁽ˡ⁾)</p>
                             <p>• Backprop: δ⁽ˡ⁾ = (w⁽ˡ⁺¹⁾)ᵀδ⁽ˡ⁺¹⁾ ⊙ σ'(z⁽ˡ⁾)</p>
                             <p>• Update: w = w - η ∇w J(w,b)</p>
@@ -602,7 +602,7 @@ export default function Compare() {
                         <p className="text-sm mb-3">
                             Specialized for spatial data using convolutional layers to detect hierarchical patterns.
                         </p>
-                        <div className="text-xs text-gray-400 space-y-1">
+                        <div className="text-xs  space-y-1">
                             <p>• Conv: O[i,j] = ∑∑ I[i+m,j+n] ⋅ K[m,n]</p>
                             <p>• Pooling: Reduce spatial dimensions</p>
                             <p>• Feature Hierarchy: Edges → Textures → Objects</p>
