@@ -209,31 +209,41 @@ export default function LinearRegression() {
             });
         } else {
             if (showResiduals || isAnimatingLine) {
+                const { ymin, ymax } = getDomain();
+
                 points.forEach((p) => {
-                    const predictedY = currentM * p.x + currentB;
+                    let predictedY = currentM * p.x + currentB;
+
+                    
+                    predictedY = Math.max(ymin, Math.min(ymax, predictedY));
+
                     const { px: px1, py: py1 } = dataToPixel(p.x, p.y, width, height);
                     const { px: px2, py: py2 } = dataToPixel(p.x, predictedY, width, height);
-                    ctx.beginPath();
-                    ctx.setLineDash([6, 6]);
-                    ctx.strokeStyle = theme === "dark" ? "#10b981" : "green";
-                    ctx.lineWidth = 1.5;
-                    ctx.moveTo(px1, py1);
-                    ctx.lineTo(px2, py2);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
+
+                    
+                    if (py1 >= PADDING && py1 <= height - PADDING && py2 >= PADDING && py2 <= height - PADDING) {
+                        ctx.beginPath();
+                        ctx.setLineDash([6, 6]);
+                        ctx.strokeStyle = theme === "dark" ? "#10b981" : "green";
+                        ctx.lineWidth = 1.5;
+                        ctx.moveTo(px1, py1);
+                        ctx.lineTo(px2, py2);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
                 });
             }
 
-            // FIXED: Calculate line endpoints that stay within the visible chart area
+            
             const { xmin: domainXmin, xmax: domainXmax, ymin: domainYmin, ymax: domainYmax } = getDomain();
 
-            // Calculate where the regression line intersects the visible domain boundaries
+          
             const getLineEndpoints = () => {
-                // Calculate y values at the domain boundaries
+               
                 const yAtXmin = currentM * domainXmin + currentB;
                 const yAtXmax = currentM * domainXmax + currentB;
 
-                // If both endpoints are within the y-domain, use them directly
+                
                 if (yAtXmin >= domainYmin && yAtXmin <= domainYmax &&
                     yAtXmax >= domainYmin && yAtXmax <= domainYmax) {
                     return [
@@ -242,10 +252,10 @@ export default function LinearRegression() {
                     ];
                 }
 
-                // Calculate intersection points with the domain boundaries
+               
                 const intersections: Point[] = [];
 
-                // Check intersections with vertical boundaries (x = xmin, x = xmax)
+               
                 [domainXmin, domainXmax].forEach(x => {
                     const y = currentM * x + currentB;
                     if (y >= domainYmin && y <= domainYmax) {
@@ -253,7 +263,7 @@ export default function LinearRegression() {
                     }
                 });
 
-                // Check intersections with horizontal boundaries (y = ymin, y = ymax)
+              
                 [domainYmin, domainYmax].forEach(y => {
                     const x = (y - currentB) / currentM;
                     if (x >= domainXmin && x <= domainXmax && isFinite(x)) {
@@ -261,7 +271,7 @@ export default function LinearRegression() {
                     }
                 });
 
-                // Remove duplicates and ensure we have exactly 2 points
+                
                 const uniqueIntersections = intersections.filter((point, index, self) =>
                     index === self.findIndex(p =>
                         Math.abs(p.x - point.x) < 1e-6 && Math.abs(p.y - point.y) < 1e-6
@@ -269,12 +279,12 @@ export default function LinearRegression() {
                 );
 
                 if (uniqueIntersections.length >= 2) {
-                    // Sort by x and take the two extreme points
+                    
                     uniqueIntersections.sort((a, b) => a.x - b.x);
                     return [uniqueIntersections[0], uniqueIntersections[uniqueIntersections.length - 1]];
                 }
 
-                // Fallback: use domain boundaries
+               
                 return [
                     { x: domainXmin, y: domainYmin },
                     { x: domainXmax, y: domainYmax }
@@ -368,6 +378,7 @@ export default function LinearRegression() {
     useEffect(() => {
         if (!isAnimatingLine) return;
 
+        let cancel = false;
         const randomPoints = generateRandomPoints(10);
         const { m: finalM, b: finalB } = calcRegression(randomPoints);
 
@@ -376,26 +387,42 @@ export default function LinearRegression() {
         setShowResiduals(false);
         setCurrentAnimationStep(0);
 
-        const totalDuration = 3000 - animSpeed * 20;
-        const start = performance.now();
+        let currentStep = 0;
+        const totalPoints = randomPoints.length;
 
-        const animate = (time: number) => {
-            const elapsed = time - start;
-            const progress = Math.min(1, elapsed / totalDuration);
+      
+        const getDelay = (speed: number): number => {
+            if (speed <= 1) return 5000;      // 1 → 5 sec
+            if (speed <= 10) return 4000;     // 10 → 4 sec
+            if (speed <= 20) return 4000;     // 20 → 4 sec
+            if (speed <= 25) return 3000;     // 25 → 3 sec
+            if (speed <= 40) return 2000;     // 40 → 2 sec
+            if (speed <= 50) return 2000;     // 50 → 2 sec
+            if (speed <= 60) return 1500;     // 60 → 1.5 sec
+            if (speed <= 75) return 1000;     // 75 → 1 sec
+            if (speed <= 90) return 800;      // 90 → 0.8 sec
+            if (speed <= 100) return 500;     // 100 → 0.5 sec
+            return 1000; 
+        };
 
-            const segment = progress * (randomPoints.length - 1);
+        const animateStep = () => {
+            if (cancel) return;
 
-            setCurrentAnimationStep(segment);
-
+            setCurrentAnimationStep(currentStep);
             draw();
 
-            if (progress < 1) {
-                requestAnimationFrame(animate);
+            if (currentStep < totalPoints - 1) {
+                currentStep++;
+
+                const delay = getDelay(animSpeed); 
+
+                setTimeout(animateStep, delay);
             } else {
-                setCurrentM(finalM);
-                setCurrentB(finalB);
-                setShowResiduals(true);
+             
                 setTimeout(() => {
+                    setCurrentM(finalM);
+                    setCurrentB(finalB);
+                    setShowResiduals(true);
                     setIsAnimating(false);
                     setIsAnimatingLine(false);
                     setAnimationPoints([]);
@@ -403,8 +430,14 @@ export default function LinearRegression() {
             }
         };
 
-        requestAnimationFrame(animate);
+        animateStep();
+
+        return () => {
+            cancel = true;
+        };
     }, [isAnimatingLine, animSpeed]);
+
+
 
     useEffect(() => {
         draw();
