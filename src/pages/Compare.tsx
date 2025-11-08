@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
+import { Chart, registerables } from "chart.js";
 import {
-    FaChartLine,
     FaBrain,
-    FaNetworkWired,
-    FaProjectDiagram,
     FaCalculator,
-    FaPlay,
+    FaChartLine,
+    FaNetworkWired,
     FaPause,
+    FaPlay,
+    FaProjectDiagram,
     FaRedo
 } from "react-icons/fa";
-import { Chart, registerables } from "chart.js";
 
 Chart.register(...registerables);
 
@@ -49,8 +49,17 @@ export default function Compare() {
     const [linearProgress, setLinearProgress] = useState(0);
     const [nnProgress, setNnProgress] = useState(0);
     const [cnnProgress, setCnnProgress] = useState(0);
+    const [linearAccuracy, setLinearAccuracy] = useState(0);
+    const [nnAccuracy, setNnAccuracy] = useState(0);
+    const [cnnAccuracy, setCnnAccuracy] = useState(0);
+    const [showAccuracy, setShowAccuracy] = useState({
+        linear: false,
+        nn: false,
+        cnn: false
+    });
 
-   
+
+
     const getAxisLimits = () => {
         if (points.length === 0) return { xMin: 0, xMax: 6, yMin: 0, yMax: 6 };
 
@@ -62,7 +71,7 @@ export default function Compare() {
         const yMin = Math.min(...ys);
         const yMax = Math.max(...ys);
 
-        
+
         const xPadding = (xMax - xMin) * 0.1;
         const yPadding = (yMax - yMin) * 0.1;
 
@@ -114,9 +123,9 @@ export default function Compare() {
         const { slope, intercept } = calculateRegression();
         const xs = points.map(p => p.x);
 
-       
+
         return xs.map(x => {
-            
+
             const basePrediction = intercept + slope * x;
             const nonLinearComponent = Math.sin(x * 0.8) * progress * 2;
             return {
@@ -126,18 +135,18 @@ export default function Compare() {
         });
     };
 
-    
+
     const animateCNN = (progress: number) => {
         const { slope, intercept } = calculateRegression();
         const xs = points.map(p => p.x);
 
-       
+
         return xs.map(x => {
             const normalizedProgress = progress * 1.5;
             const basePrediction = intercept + slope * x;
 
-           
-            const feature1 = Math.max(0, x - 2) * progress; 
+
+            const feature1 = Math.max(0, x - 2) * progress;
             const feature2 = Math.sin(x * 0.5) * progress * 0.5;
 
             return {
@@ -146,6 +155,22 @@ export default function Compare() {
                     (basePrediction + feature1 + feature2) * normalizedProgress
             };
         });
+    };
+
+    const calculateAccuracy = (predictions: { x: number; y: number }[]) => {
+        if (points.length === 0) return 0;
+
+        let totalError = 0;
+        let totalActual = 0;
+
+        points.forEach((p, i) => {
+            const pred = predictions[i]?.y ?? 0;
+            totalError += Math.abs(p.y - pred);
+            totalActual += Math.abs(p.y);
+        });
+
+        const mape = (totalError / totalActual) * 100;
+        return Math.max(0, 100 - mape);
     };
 
     useEffect(() => {
@@ -158,7 +183,7 @@ export default function Compare() {
         const { slope, intercept } = calculateRegression();
         const axisLimits = getAxisLimits();
 
-       
+
         const linearChart = new Chart(ctx1, {
             type: "scatter",
             data: {
@@ -228,7 +253,7 @@ export default function Compare() {
             },
         });
 
-        
+
         const nnChart = new Chart(ctx2, {
             type: "scatter",
             data: {
@@ -247,7 +272,7 @@ export default function Compare() {
                         borderColor: "#f59e0b",
                         borderWidth: 3,
                         fill: false,
-                        tension: 0.4, 
+                        tension: 0.4,
                         pointRadius: 0,
                     }
                 ],
@@ -288,7 +313,7 @@ export default function Compare() {
             },
         });
 
-       
+
         const cnnChart = new Chart(ctx3, {
             type: "scatter",
             data: {
@@ -348,14 +373,24 @@ export default function Compare() {
             },
         });
 
-       
+
         const animate = () => {
             frameRef.current++;
 
-           
+
             if (animationState.linear === 'playing') {
                 setLinearProgress(prev => {
                     const newProgress = Math.min(1, prev + 0.002);
+
+                    // Calculate accuracy when training completes
+                    if (newProgress >= 1 && prev < 1) {
+                        const linearPreds = points.map(p => ({
+                            x: p.x,
+                            y: calculations.slope * p.x + calculations.intercept
+                        }));
+                        setLinearAccuracy(calculateAccuracy(linearPreds));
+                        setShowAccuracy(prev => ({ ...prev, linear: true }));
+                    }
 
                     const animatedLine = animateLinearRegression(newProgress);
                     linearChart.data.datasets[1].data = animatedLine;
@@ -375,10 +410,18 @@ export default function Compare() {
                 });
             }
 
-           
+
             if (animationState.nn === 'playing') {
                 setNnProgress(prev => {
                     const newProgress = Math.min(1, prev + 0.0015);
+
+                    // Calculate accuracy when training completes
+                    if (newProgress >= 1 && prev < 1) {
+                        const nnPreds = animateNeuralNetwork(1);
+                        setNnAccuracy(calculateAccuracy(nnPreds));
+                        setShowAccuracy(prev => ({ ...prev, nn: true }));
+                    }
+
                     const nnPredictions = animateNeuralNetwork(newProgress);
                     nnChart.data.datasets[1].data = nnPredictions;
                     nnChart.update('none');
@@ -386,10 +429,18 @@ export default function Compare() {
                 });
             }
 
-           
+
             if (animationState.cnn === 'playing') {
                 setCnnProgress(prev => {
                     const newProgress = Math.min(1, prev + 0.001);
+
+                    // Calculate accuracy when training completes
+                    if (newProgress >= 1 && prev < 1) {
+                        const cnnPreds = animateCNN(1);
+                        setCnnAccuracy(calculateAccuracy(cnnPreds));
+                        setShowAccuracy(prev => ({ ...prev, cnn: true }));
+                    }
+
                     const cnnPredictions = animateCNN(newProgress);
                     cnnChart.data.datasets[1].data = cnnPredictions;
                     cnnChart.update('none');
@@ -403,11 +454,19 @@ export default function Compare() {
         if (animationState.linear === 'playing' || animationState.nn === 'playing' || animationState.cnn === 'playing') {
             animate();
         } else {
-          
-
-            if (animationState.linear === 'paused') setLinearProgress(0);
-            if (animationState.nn === 'paused') setNnProgress(0);
-            if (animationState.cnn === 'paused') setCnnProgress(0);
+            // Reset progress and hide accuracy when paused
+            if (animationState.linear === 'paused') {
+                setLinearProgress(0);
+                setShowAccuracy(prev => ({ ...prev, linear: false }));
+            }
+            if (animationState.nn === 'paused') {
+                setNnProgress(0);
+                setShowAccuracy(prev => ({ ...prev, nn: false }));
+            }
+            if (animationState.cnn === 'paused') {
+                setCnnProgress(0);
+                setShowAccuracy(prev => ({ ...prev, cnn: false }));
+            }
         }
 
         return () => {
@@ -447,6 +506,8 @@ export default function Compare() {
             { x: 4, y: 3.8 },
             { x: 5, y: 5 },
         ]);
+        // Reset all accuracies when points are reset
+        setShowAccuracy({ linear: false, nn: false, cnn: false });
     };
 
     const highlightModel = (model: string) => {
@@ -467,7 +528,7 @@ export default function Compare() {
                     Model Comparison
                 </h1>
 
-                
+
                 <div className="flex flex-wrap justify-center gap-3 mb-6">
                     <input
                         type="number"
@@ -497,7 +558,7 @@ export default function Compare() {
                     </button>
                 </div>
 
-               
+
                 <div className="mb-6 text-center">
                     <h3 className="text-lg font-semibold mb-2">Current Data Points:</h3>
                     <div className="flex flex-wrap justify-center gap-2">
@@ -519,9 +580,9 @@ export default function Compare() {
                     </div>
                 </div>
 
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                 
+
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
@@ -548,7 +609,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={linearChartRef} height={200}></canvas>
 
-                       
+
                         <div
                             className={`mt-4 p-3 bg-gray-700 rounded-lg ${theme === "dark" ? "text-white/70" : "text-black/70"
                                 }`}
@@ -560,15 +621,19 @@ export default function Compare() {
                             <div className="text-xs space-y-1 mt-2">
                                 <p className="text-white " >Slope (m): <span className="text-green-500">{calculations.slope.toFixed(3)}</span></p>
                                 <p className="text-white " >Intercept (b): <span className="text-orange-500">{calculations.intercept.toFixed(3)}</span></p>
+                                
+                                <p className="text-white " >Training Progress: <span className="text-blue-500">{(linearProgress * 100).toFixed(0)}%</span></p>
                                 <p className="text-white " >Equation: <span className="text-purple-500"> y = {calculations.slope.toFixed(3)}x + {calculations.intercept.toFixed(3)}</span></p>
                                 <p className="text-white " >R²: <span className="text-yellow-500">{calculations.rSquared.toFixed(4)}</span></p>
                                 <p className="text-white " >MSE: <span className="text-red-500">{calculations.mse.toFixed(4)}</span></p>
-                                <p className="text-white " >Progress: <span className="text-blue-500">{(linearProgress * 100).toFixed(0)}%</span></p>
+                                {showAccuracy.linear && (
+                                    <p className="text-white">Accuracy: <span className="text-blue-400">{linearAccuracy.toFixed(2)}%</span></p>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                   
+
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
@@ -591,7 +656,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={nnChartRef} height={200}></canvas>
 
-                       
+
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-yellow-300">
                                 <FaCalculator /> Neural Network Learning
@@ -599,14 +664,19 @@ export default function Compare() {
                             <div className="text-xs space-y-1 mt-2">
                                 <p className="text-white ">Learning Rate: <span className="text-green-500">0.001</span></p>
                                 <p className="text-white ">Epochs: <span className="text-orange-500">{(nnProgress * 1000).toFixed(0)}</span></p>
+                                
+                                <p className="text-white " >Training Progress: <span className="text-yellow-500">{(nnProgress * 100).toFixed(0)}%</span></p>
                                 <p className="text-white ">Activation: <span className="text-purple-500">ReLU/Sigmoid</span></p>
                                 <p className="text-white " >Layers: <span className="text-yellow-500">3 Hidden</span></p>
                                 <p className="text-white ">Loss: <span className="text-red-500">{(1 - nnProgress).toFixed(3)}</span></p>
+                                {showAccuracy.nn && (
+                                    <p className="text-white">Accuracy: <span className="text-yellow-400">{nnAccuracy.toFixed(2)}%</span></p>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                   
+
                     <div
                         className={`rounded-xl shadow-lg p-4 border transition-all duration-300 ${theme === "dark"
                             ? "bg-gray-800 border-gray-700"
@@ -629,7 +699,7 @@ export default function Compare() {
                         </div>
                         <canvas ref={cnnChartRef} height={200}></canvas>
 
-                       
+
                         <div className="mt-4 p-3 bg-gray-700 rounded-lg">
                             <h3 className="font-semibold flex items-center gap-2 text-green-300">
                                 <FaCalculator /> CNN Feature Learning
@@ -639,13 +709,17 @@ export default function Compare() {
                                 <p className="text-white ">Kernel Size: <span className="text-orange-500">3×3</span></p>
                                 <p className="text-white ">Feature Maps: <span className="text-purple-500">32, 64</span></p>
                                 <p className="text-white">Pooling: <span className="text-yellow-500">MaxPool 2×2</span></p>
-                                <p className="text-white " >Training Progress: <span className="text-red-500">{(cnnProgress * 100).toFixed(1)}%</span></p>
+                                
+                                <p className="text-white " >Training Progress: <span className="text-green-500">{(cnnProgress * 100).toFixed(0)}%</span></p>
+                                {showAccuracy.cnn && (
+                                    <p className="text-white">Accuracy: <span className="text-green-400">{cnnAccuracy.toFixed(2)}%</span></p>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-               
+
                 <div className="grid md:grid-cols-3 gap-6">
                     <div className={`rounded-xl p-5 transition-all duration-300 ${theme === "dark"
                         ? "bg-gray-800 border border-gray-700"

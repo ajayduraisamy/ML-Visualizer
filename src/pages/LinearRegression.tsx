@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
-type Point = { x: number; y: number };
+type Point = { x: number; y: number; temp?: boolean };
 
 const PADDING = 48;
 const POINT_RADIUS = 5;
@@ -71,7 +71,7 @@ export default function LinearRegression() {
     const [currentAnimationStep, setCurrentAnimationStep] = useState(0);
 
     const getDomain = useCallback(() => {
-       
+
         const currentPoints = points;
         if (currentPoints.length === 0) return { xmin: 0, xmax: 10, ymin: 0, ymax: 10 };
 
@@ -93,7 +93,7 @@ export default function LinearRegression() {
         if (Math.abs(ymax - ymin) < 1e-6) ymax = ymin + 5;
 
         return { xmin, xmax, ymin, ymax };
-    
+
 
     }, [points, isAnimatingLine, isAnimating]);
 
@@ -110,6 +110,14 @@ export default function LinearRegression() {
         const y = ymin + ((height - PADDING - py) / (height - 2 * PADDING)) * (ymax - ymin);
         return { x, y };
     }
+    const calcCurrentError = useCallback(() => {
+        if (!points.length) return 0;
+        return points.reduce((sum, p) => {
+            const pred = currentM * p.x + currentB;
+            return sum + (p.y - pred) ** 2;
+        }, 0);
+    }, [points, currentM, currentB]);
+
 
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
@@ -211,13 +219,13 @@ export default function LinearRegression() {
                 points.forEach((p) => {
                     let predictedY = currentM * p.x + currentB;
 
-                    
+
                     predictedY = Math.max(ymin, Math.min(ymax, predictedY));
 
                     const { px: px1, py: py1 } = dataToPixel(p.x, p.y, width, height);
                     const { px: px2, py: py2 } = dataToPixel(p.x, predictedY, width, height);
 
-                    
+
                     if (py1 >= PADDING && py1 <= height - PADDING && py2 >= PADDING && py2 <= height - PADDING) {
                         ctx.beginPath();
                         ctx.setLineDash([6, 6]);
@@ -231,16 +239,16 @@ export default function LinearRegression() {
                 });
             }
 
-            
+
             const { xmin: domainXmin, xmax: domainXmax, ymin: domainYmin, ymax: domainYmax } = getDomain();
 
-          
+
             const getLineEndpoints = () => {
-               
+
                 const yAtXmin = currentM * domainXmin + currentB;
                 const yAtXmax = currentM * domainXmax + currentB;
 
-                
+
                 if (yAtXmin >= domainYmin && yAtXmin <= domainYmax &&
                     yAtXmax >= domainYmin && yAtXmax <= domainYmax) {
                     return [
@@ -249,10 +257,10 @@ export default function LinearRegression() {
                     ];
                 }
 
-               
+
                 const intersections: Point[] = [];
 
-               
+
                 [domainXmin, domainXmax].forEach(x => {
                     const y = currentM * x + currentB;
                     if (y >= domainYmin && y <= domainYmax) {
@@ -260,7 +268,7 @@ export default function LinearRegression() {
                     }
                 });
 
-              
+
                 [domainYmin, domainYmax].forEach(y => {
                     const x = (y - currentB) / currentM;
                     if (x >= domainXmin && x <= domainXmax && isFinite(x)) {
@@ -268,7 +276,7 @@ export default function LinearRegression() {
                     }
                 });
 
-                
+
                 const uniqueIntersections = intersections.filter((point, index, self) =>
                     index === self.findIndex(p =>
                         Math.abs(p.x - point.x) < 1e-6 && Math.abs(p.y - point.y) < 1e-6
@@ -276,12 +284,12 @@ export default function LinearRegression() {
                 );
 
                 if (uniqueIntersections.length >= 2) {
-                    
+
                     uniqueIntersections.sort((a, b) => a.x - b.x);
                     return [uniqueIntersections[0], uniqueIntersections[uniqueIntersections.length - 1]];
                 }
 
-               
+
                 return [
                     { x: domainXmin, y: domainYmin },
                     { x: domainXmax, y: domainYmax }
@@ -315,7 +323,12 @@ export default function LinearRegression() {
         ctx.fillText(`y = ${currentM.toFixed(4)} x + ${currentB.toFixed(4)}`, PADDING + 2, 20);
         ctx.fillStyle = theme === "dark" ? "#9ca3af" : "#6b7280";
         ctx.font = "12px sans-serif";
-        ctx.fillText(`Total Error (Sum of Squared Residuals): ${totalError.toFixed(4)}`, PADDING + 2, 38);
+        const currentError = calcCurrentError();
+        ctx.fillText(
+            `Total Error (Sum of Squared Residuals): ${currentError.toFixed(4)}`,
+            PADDING + 2,
+            38
+        );
 
         if (hoverIdx !== null && !isAnimating) {
             const p = points[hoverIdx];
@@ -363,7 +376,28 @@ export default function LinearRegression() {
                 ctx.fillText(allLines[i], boxX + 10, boxY + 18 + i * 18);
             }
         }
-    }, [points, currentM, currentB, getDomain, hoverIdx, showResiduals, totalError, theme, isAnimating, animationPoints, currentAnimationStep]);
+    }, [
+        points,
+        currentM,
+        currentB,
+        getDomain,
+        hoverIdx,
+        showResiduals,
+        totalError,
+        theme,
+        isAnimating,
+        animationPoints,
+        currentAnimationStep,
+        calcCurrentError
+    ]);
+
+    const currentMRef = useRef(currentM);
+    const currentBRef = useRef(currentB);
+
+    useEffect(() => {
+        currentMRef.current = currentM;
+        currentBRef.current = currentB;
+    }, [currentM, currentB]);
 
     useEffect(() => {
         if (!manualM && !manualB) {
@@ -377,13 +411,17 @@ export default function LinearRegression() {
 
         let cancel = false;
 
-        
-        const userPoints = [...points];
+
+        const userPoints = points
+            .filter((p: any) => Number.isFinite(p.x) && Number.isFinite(p.y))
+            .map((p: any) => ({ x: p.x, y: p.y }));
+
         if (userPoints.length < 2) {
             setIsAnimatingLine(false);
             alert("Add at least two points to animate regression!");
             return;
         }
+
 
         const { m: finalM, b: finalB } = calcRegression(userPoints);
 
@@ -412,7 +450,18 @@ export default function LinearRegression() {
         const animateStep = () => {
             if (cancel) return;
 
+            
+            const progress = currentStep / (totalPoints - 1);
+
+           
+            const newM = currentMRef.current + (finalM - currentMRef.current) * progress;
+            const newB = currentBRef.current + (finalB - currentBRef.current) * progress;
+
+
+            setCurrentM(newM);
+            setCurrentB(newB);
             setCurrentAnimationStep(currentStep);
+
             draw();
 
             if (currentStep < totalPoints - 1) {
@@ -427,16 +476,17 @@ export default function LinearRegression() {
                     setIsAnimating(false);
                     setIsAnimatingLine(false);
                     setAnimationPoints([]);
-                }, 2000);
+                }, 1000);
             }
         };
+
 
         animateStep();
 
         return () => {
             cancel = true;
         };
-    }, [isAnimatingLine, animSpeed, points]);  
+    }, [isAnimatingLine, animSpeed, points]);
 
 
 
@@ -673,14 +723,58 @@ export default function LinearRegression() {
                             <input
                                 id="inpX"
                                 placeholder="X value"
-                                className={`border p-2 rounded w-full ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300"}`}
+                                onChange={(e) => {
+                                    const x = parseFloat(e.target.value);
+                                    const yEl = document.getElementById("inpY") as HTMLInputElement;
+                                    const y = parseFloat(yEl.value);
+
+                                    if (!isNaN(x) && !isNaN(y)) {
+                                        setPoints((prev) => {
+                                            const newPoints = [...prev];
+                                            if (newPoints.length > 0 && newPoints[newPoints.length - 1].temp) {
+                                                // replace temp preview
+                                                newPoints[newPoints.length - 1] = { x, y, temp: true } as any;
+                                            } else {
+                                                // add once as preview
+                                                newPoints.push({ x, y, temp: true } as any);
+                                            }
+                                            return newPoints;
+                                        });
+                                    }
+                                }}
+                                className={`border p-2 rounded w-full ${theme === "dark"
+                                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                                    : "bg-white border-gray-300"
+                                    }`}
                             />
+
                             <input
                                 id="inpY"
                                 placeholder="Y value"
-                                className={`border p-2 rounded w-full ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-300"}`}
+                                onChange={(e) => {
+                                    const y = parseFloat(e.target.value);
+                                    const xEl = document.getElementById("inpX") as HTMLInputElement;
+                                    const x = parseFloat(xEl.value);
+
+                                    if (!isNaN(x) && !isNaN(y)) {
+                                        setPoints((prev) => {
+                                            const newPoints = [...prev];
+                                            if (newPoints.length > 0 && newPoints[newPoints.length - 1].temp) {
+                                                newPoints[newPoints.length - 1] = { x, y, temp: true } as any;
+                                            } else {
+                                                newPoints.push({ x, y, temp: true } as any);
+                                            }
+                                            return newPoints;
+                                        });
+                                    }
+                                }}
+                                className={`border p-2 rounded w-full ${theme === "dark"
+                                    ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                                    : "bg-white border-gray-300"
+                                    }`}
                             />
                         </div>
+
                         <div className="flex gap-2 mb-3">
                             <button onClick={addPointFromInputs} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full transition-colors">
                                 Add Point
@@ -713,6 +807,14 @@ export default function LinearRegression() {
                     <div className={`p-4 border rounded-lg space-y-3 ${theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
                         <button
                             onClick={() => {
+                                // 🧹 Step 1: finalize any "temp" preview points before animation
+                                setPoints((prev) =>
+                                    prev
+                                        .filter((p: any) => Number.isFinite(p.x) && Number.isFinite(p.y))
+                                        .map((p: any) => ({ x: p.x, y: p.y }))
+                                );
+
+
                                 setIsAnimatingLine(true);
                                 setManualM(null);
                                 setManualB(null);
@@ -722,6 +824,7 @@ export default function LinearRegression() {
                         >
                             {isAnimating ? "Animating..." : "Animate BFL"}
                         </button>
+
 
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
